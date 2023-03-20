@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<robot name="beacon">
+	<material name="white">
+		<color rgba="1 1 1 1"/>
+	</material>
+  <link name="beacon">
+    <visual name = "lens">
+      <geometry>
+        <cylinder length="0.3" radius="0.07"/>        
+      </geometry>
+			<material name="white"/>
+    </visual>
+  </link>
+
+</robot>

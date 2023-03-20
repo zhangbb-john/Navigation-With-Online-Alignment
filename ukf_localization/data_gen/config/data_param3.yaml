@@ -1,0 +1,46 @@
+#motion
+## 10  static; 11 uniform linear motion ; 12 acc ;13 acc then uniform motion ;
+## 21 circle sin cos attitude;22.circle fixed angle  ;23 big agnle ;24 +3.14 ; 25 non-uniform circle
+type: 21
+t_start: 0
+t_end: 6000
+circle_num: 8
+#failure
+FAILURE: False
+failure_t_start: 350
+failure_t_end: 400
+#range
+x_mag: 50
+y_mag: 50
+z_mag: 20
+#angle
+rp_mag: 0.9
+yaw_mag: 3.14
+augular_speed: 0.04
+
+#timestep
+imu_timestep: 0.02
+dvl_timestep: 1.0
+depth_timestep: 0.25
+angle_timestep: 5
+recvim_timestep: 5
+#noise
+roll_sigma: 0.007
+pitch_sigma: 0.007
+yaw_sigma: 0.0349
+gyro_bias_sigma: 1.0e-4
+acc_bias_sigma: 1.0e-4
+gyro_noise_sigma: 1.0e-3
+acc_noise_sigma: 1.0e-2
+dvl_noise_sigma: 4.0e-2
+dvl_scale: 1.005
+depth_noise_sigma: 0.6
+angle_noise_sigma: 0.0175
+recvim_noise_sigma: 5.0e-2
+beacon_depth_noise_sigma: 0.6
+#usbl 5 8 11
+usbl_rpy: [0.0524, 0.0873, 0.1396]
+beacon_pos: [-50.0, 20.0, 10.0]
+USBL: True
+NOISE: True
+DEPTH: True

@@ -1,0 +1,12 @@
+<launch>
+  <arg
+    name="model" />
+  <param
+    name="robot_description"
+    textfile="$(find auv_model)/urdf/auv_model.urdf" />
+  <node
+    name="rviz"
+    pkg="rviz"
+    type="rviz"
+    args="-d $(find auv_model)/urdf_cartographer.rviz" />
+</launch>

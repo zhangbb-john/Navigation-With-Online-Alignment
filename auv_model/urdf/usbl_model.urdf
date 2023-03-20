@@ -1,0 +1,559 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-1-g15f4949  Build Version: 1.6.7594.29634
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="usbl_model">
+  <link
+    name="base_usbl">
+    <inertial>
+      <origin
+        xyz="0.066455 4.5644E-06 0.0008838"
+        rpy="0 0 0" />
+      <mass
+        value="580.87" />
+      <inertia
+        ixx="53.088"
+        ixy="0.0009714"
+        ixz="-0.020046"
+        iyy="81.713"
+        iyz="-0.0006525"
+        izz="111.33" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://auv_model/meshes/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 0.42745 0.37255 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://auv_model/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="link1">
+    <inertial>
+      <origin
+        xyz="0 -5.55111512312578E-17 0.00582005576577271"
+        rpy="0 0 0" />
+      <mass
+        value="0.219082454356588" />
+      <inertia
+        ixx="0.000553877896632537"
+        ixy="2.48186495508586E-20"
+        ixz="-2.28870535735766E-19"
+        iyy="0.000553877896632537"
+        iyz="-2.06795153138257E-20"
+        izz="8.46424691524212E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://auv_model/meshes/link1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.972549019607843 1 0.152941176470588 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://auv_model/meshes/link1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="1#thruster"
+    type="continuous">
+    <origin
+      xyz="0.38014 0 -0.299"
+      rpy="1.5708 0 0" />
+    <parent
+      link="base_usbl" />
+    <child
+      link="link1" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="0"
+      upper="6.28"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="link2">
+    <inertial>
+      <origin
+        xyz="-5.55111512312578E-17 0 0.0058200557657727"
+        rpy="0 0 0" />
+      <mass
+        value="0.219082454356588" />
+      <inertia
+        ixx="0.000553877896632537"
+        ixy="3.90293539805782E-20"
+        ixz="-2.0105658763867E-19"
+        iyy="0.000553877896632537"
+        iyz="-5.29395592033938E-20"
+        izz="8.46424691524212E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://auv_model/meshes/link2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.972549019607843 1 0.152941176470588 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://auv_model/meshes/link2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="2#thruster"
+    type="continuous">
+    <origin
+      xyz="0.38014 0 0.299"
+      rpy="1.5708 0 0" />
+    <parent
+      link="base_usbl" />
+    <child
+      link="link2" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="0"
+      upper="6.28"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="link3">
+    <inertial>
+      <origin
+        xyz="6.1523008909603E-13 -2.62841137743663E-12 0.00582005576576341"
+        rpy="0 0 0" />
+      <mass
+        value="0.219082454356588" />
+      <inertia
+        ixx="0.000553877896632537"
+        ixy="-5.42101086242752E-20"
+        ixz="-1.96942075992639E-19"
+        iyy="0.000553877896632536"
+        iyz="4.10774357144031E-20"
+        izz="8.4642469152421E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://auv_model/meshes/link3.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.972549019607843 1 0.152941176470588 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://auv_model/meshes/link3.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="3#thruster"
+    type="continuous">
+    <origin
+      xyz="-0.32186 0 0"
+      rpy="1.5708 0.22997 0" />
+    <parent
+      link="base_usbl" />
+    <child
+      link="link3" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="0"
+      upper="6.28"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="link4">
+    <inertial>
+      <origin
+        xyz="-1.99840144432528E-15 1.96370697480575E-15 0.000820055765243202"
+        rpy="0 0 0" />
+      <mass
+        value="0.219082454356588" />
+      <inertia
+        ixx="0.000553877896632537"
+        ixy="1.21972744404619E-19"
+        ixz="1.10905631225746E-15"
+        iyy="0.000553877896632537"
+        iyz="-1.00842756476344E-16"
+        izz="8.46424691524214E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://auv_model/meshes/link4.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.972549019607843 1 0.152941176470588 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://auv_model/meshes/link4.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="4#thruster"
+    type="continuous">
+    <origin
+      xyz="0.58765 0 0"
+      rpy="0 0 0.090567" />
+    <parent
+      link="base_usbl" />
+    <child
+      link="link4" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="0"
+      upper="6.28"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="link5">
+    <inertial>
+      <origin
+        xyz="3.33066907387547E-16 -1.85296222809939E-13 0.0858200557661546"
+        rpy="0 0 0" />
+      <mass
+        value="0.219082454356588" />
+      <inertia
+        ixx="0.000553877896632534"
+        ixy="0"
+        ixz="-1.9879085977734E-18"
+        iyy="0.000553877896632534"
+        iyz="1.01373530375499E-15"
+        izz="8.46424691524206E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://auv_model/meshes/link5.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.972549019607843 1 0.152941176470588 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://auv_model/meshes/link5.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="5#thruster"
+    type="continuous">
+    <origin
+      xyz="-0.80686 0 -0.372"
+      rpy="1.5708 -0.42763 -1.5708" />
+    <parent
+      link="base_usbl" />
+    <child
+      link="link5" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="0"
+      upper="6.28"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="link6">
+    <inertial>
+      <origin
+        xyz="-3.33066907387547E-16 -1.65756297576536E-13 0.0858200557661754"
+        rpy="0 0 0" />
+      <mass
+        value="0.219082454356588" />
+      <inertia
+        ixx="0.000553877896632537"
+        ixy="0"
+        ixz="1.59251838442207E-18"
+        iyy="0.000553877896632536"
+        iyz="9.06346601104337E-16"
+        izz="8.46424691524205E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://auv_model/meshes/link6.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.972549019607843 1 0.152941176470588 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://auv_model/meshes/link6.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="6#thruster"
+    type="continuous">
+    <origin
+      xyz="-0.80686 0 0.372"
+      rpy="1.5708 -0.62074 -1.5708" />
+    <parent
+      link="base_usbl" />
+    <child
+      link="link6" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="0"
+      upper="6.28"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="link_sonar">
+    <inertial>
+      <origin
+        xyz="0.142282918239957 8.5727986835149E-05 0.207904431552362"
+        rpy="0 0 0" />
+      <mass
+        value="0.0502654824574367" />
+      <inertia
+        ixx="2.05250720034533E-05"
+        ixy="0"
+        ixz="1.83670992315982E-38"
+        iyy="2.05250720034533E-05"
+        iyz="-1.94272883206887E-38"
+        izz="4.02123859659494E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://auv_model/meshes/link_sonar.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://auv_model/meshes/link_sonar.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="sonar_frame"
+    type="fixed">
+    <origin
+      xyz="0.59761 0.00090443 0"
+      rpy="1.5708 0 0" />
+    <parent
+      link="base_usbl" />
+    <child
+      link="link_sonar" />
+    <axis
+      xyz="0 0 0" />
+    <limit
+      lower="0"
+      upper="0"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="link_altitude">
+    <inertial>
+      <origin
+        xyz="0 0 0.005"
+        rpy="0 0 0" />
+      <mass
+        value="0.0196349540849362" />
+      <inertia
+        ixx="3.23158619314575E-06"
+        ixy="0"
+        ixz="6.44898432852067E-39"
+        iyy="3.23158619314575E-06"
+        iyz="-4.74299031266813E-39"
+        izz="6.13592315154257E-06" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://auv_model/meshes/link_altitude.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://auv_model/meshes/link_altitude.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="altitude_frame"
+    type="fixed">
+    <origin
+      xyz="-0.28636 -0.28231 0.13009"
+      rpy="1.5708 0 0" />
+    <parent
+      link="base_usbl" />
+    <child
+      link="link_altitude" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="link_dvl">
+    <inertial>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <mass
+        value="0" />
+      <inertia
+        ixx="0"
+        ixy="0"
+        ixz="0"
+        iyy="0"
+        iyz="0"
+        izz="0" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://auv_model/meshes/link_dvl.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://auv_model/meshes/link_dvl.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="dvl_frame"
+    type="fixed">
+    <origin
+      xyz="0.39314 -0.28 0"
+      rpy="1.5708 0 0" />
+    <parent
+      link="base_usbl" />
+    <child
+      link="link_dvl" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+</robot>

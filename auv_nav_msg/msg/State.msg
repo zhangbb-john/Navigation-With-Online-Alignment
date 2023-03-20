@@ -1,0 +1,18 @@
+
+Header header
+
+geometry_msgs/Vector3 position
+geometry_msgs/Vector3 rpy
+geometry_msgs/Vector3 velocity
+geometry_msgs/Vector3 acceleration
+geometry_msgs/Vector3 angular_velocity
+geometry_msgs/Vector3 beacon_pos
+geometry_msgs/Vector3 usbl_rpy
+
+geometry_msgs/Vector3 position_covariance_diag
+geometry_msgs/Vector3 rpy_covariance_diag
+geometry_msgs/Vector3 velocity_covariance_diag
+geometry_msgs/Vector3 acceleration_covariance_diag
+geometry_msgs/Vector3 angular_velocity_covariance_diag
+geometry_msgs/Vector3 beacon_pos_covariance_diag
+geometry_msgs/Vector3 usbl_rpy_covariance

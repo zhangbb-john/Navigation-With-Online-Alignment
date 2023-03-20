@@ -1,0 +1,32 @@
+<launch>
+<param  name="dir" value="/home/ubuntu/Bearing-only" />
+<param name="use_sim_time" value="true" />
+<!-- visualization -->
+  <arg
+    name="model" />
+  <param
+    name="robot_description"
+    textfile="$(find auv_model)/urdf/auv_model.urdf" />
+<!-- <include file="/opt/ros/melodic/share/usb_cam/launch/usb_cam-test.launch" /> -->
+<node pkg="rviz"  type="rviz"  name="rviz"  args="-d $(find ukf_localization)/visualization/localization.rviz"></node>
+  <!-- <param name="use_sim_time" value="false" /> -->
+<node pkg="rqt_plot" name="rqt_plot_location" type="rqt_plot" args="/Locater/Odom/pose/pose/position"></node>
+<!-- record -->
+<node pkg="rosbag" type="record" name="bag_record" args="/Locater/Odom /Locater/Truth /State /Sensor/DVL /Sensor/AHRS /Sensor/Pressure /Sensor/USBLLONG /Sensor/USBLANGLES /Sensor/RECVIM -o /home/ubuntu/Bearing-only/log/log "></node>
+
+<!-- code -->
+<node 
+    pkg="ukf_localization"  type="localization_node"  name="localization_node"  output="screen">
+    <rosparam command = "load" file ="$(find ukf_localization)/config/config.yaml"/>
+</node>
+
+<node pkg="ukf_localization"  type="traj_pub_node"  name="traj_pub_node"  output="screen"></node>
+
+<!-- data -->
+<node  pkg="rosbag" type ="play" name = "rosbag" args ="--clock  /home/ubuntu/bag/AllSensorsNoImage_2021-11-04-15-22-38_0_1300.bag --topic /Sensor/AHRS /Sensor/Pressure /Sensor/DVL /Sensor/Gps /Sensor/USBLANGLES /Sensor/RECVIM /Sensor/USBLLONG -r 1">
+</node>
+<!-- compare -->
+<node  pkg="ukf_localization" type ="gps_fix" name = "gps_fix"></node>
+<node  pkg="ukf_localization" type ="traj_gps" name = "traj_gps"></node>
+
+</launch>
