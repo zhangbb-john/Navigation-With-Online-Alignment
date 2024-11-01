@@ -1,0 +1,272 @@
+function [dx, initState, y, groundTruth] = generateData(params,dynModel,measModel)
+%% GENERATEDATA_DENSE - Generates dense data for simulation experiments
+%
+% Syntax:
+%   [dx, initState, y, groundTruth] = generateData(params, dynModel, fieldData)
+%
+% In:
+%   params    - Struct containing various parameters for data generation
+%   dynModel  - Function handle for the dynamic model
+%
+% Out:
+%   dx         - Simulated odometry data
+%   initState  - Initial state for the simulation
+%   y          - Simulated sensor measurements
+%   groundTruth - Struct containing ground truth data for position, 
+%                 orientation, odometry, and other relevant information
+%
+% Description:
+%   This function generates simulated data for dense experiments, including
+%   odometry data, sensor measurements, and ground truth information. The 
+%   function uses provided parameters and dynamic models, and can simulate 
+%   data for various trajectory types such as 2D circles, 3D squares, and 
+%   others. It can also generate field data if not provided.
+%
+% Copyright:
+%   2023-   Bingbing
+
+%% Generate odometry data 
+% Parameters should either be input via params struct or standard inputs
+% are used 
+% If file run separately then extract info
+iPos = 1 : 3;
+iQuat = 4 : 6;
+iVel = 7 : 9;
+iOffset = 10 : 12;
+iBeacon = 13 : 15;
+iMeasEuler = 1 : 3;
+iMeasVel = 4 : 6;
+iMeasDoa = 7 : 8;
+iMeasDoppler = 9 : 10;
+makePlots = params.makePlots;
+trajType = params.trajType;
+
+
+
+%% Simulate groundtruth data and noiseless odometry for different cases
+groundTruth = [];
+switch trajType
+    case 'circle_2D'
+        disp('Generating 2D data on circle')
+        radius = 2; % Radius of circular trajectory
+        nLaps = 3; % Number of laps
+        dpsi = 5; % Obtain odometry sample every 5 degrees of a circle
+        psi = (0:dpsi:360 * nLaps - dpsi)*pi/180;
+        N = length(psi);
+
+        pos = [radius * cos(psi); radius * sin(psi)]; % True position
+        groundTruth.pos = pos; % Save ground truth data
+        initState = pos(:,1); % Initial state
+        dx = diff(pos'); % Resulting odometry
+    case 'bean_2D'
+        disp('Generating bean-shaped 2D data')
+        nLaps = 3; % Number of laps
+        nDataPointsPerLap = 63; % Number of points per lap
+        a = 5;
+        psi = linspace(0,pi,nDataPointsPerLap)';
+        r = a*sin(psi).^3 + a*cos(psi).^3;
+        u = r.*cos(psi)-.3;
+        v = r.*sin(psi)-.3;
+%         yu = diff(u);
+%         yv = diff(v);
+%         th = atan2(yv,yu);
+        pos = [u'; v'];
+        % Center positions around zero
+        pos = pos - mean([min(pos,[],2) , max(pos,[],2)],2); 
+        % Make multiple laps
+        pos = [pos , repmat(pos(:,2:end),[1 nLaps-1])]; % True position
+        
+        groundTruth.pos = pos; % Save ground truth data
+        initState = pos(:,1); % Initial state
+        dx = diff(pos'); % Resulting odometry
+        N = length(pos);
+    case 'square_3D'
+        disp('Generating 3D data on square')    
+        N = params.N;
+        pos = [zeros(1,N/4), linspace(0,2,N/4), 2*ones(1,N/4), linspace(2,0,N/4); ...
+            linspace(0,2,N/4), 2*ones(1,N/4), linspace(2,0,N/4), zeros(1,N/4)];
+        % Center positions around zero
+        pos = pos - mean(pos,2);
+        
+        groundTruth.pos = pos; % Save ground truth data
+        initState = [pos(:,1);0]; % Initial state
+        dx = [diff(pos'),zeros(N-1,1)]; % Resulting odometry
+    case {'line_3D','line_2D','line_3D_withPos'}
+        disp('Generating data on line')  
+        % Simulate position data
+        if isfield(params,'N')
+            N = params.N;
+        else 
+            N = 32;
+        end
+        pos = [zeros(1,N); ...
+            [linspace(0,3,N/2) , ...
+            linspace(3,0,N/2)]];
+        % Center positions around zero
+        pos = pos - mean(pos,2);
+        
+        groundTruth.pos = pos; % Save ground truth data
+        initState = pos(:,1); % Initial position
+        dx = diff(pos'); % Resulting odometry
+        if strcmp(trajType,'line_3D') || strcmp(trajType,'line_3D_withPos')
+            initState = [initState ; 0];
+            dx = [dx, zeros(N-1,1)];
+        end
+    case 'line_6D'
+        disp('Generating 6D data on line')
+        N = 32;
+        pos = [zeros(1,N); ...
+            [linspace(0,3,N/2) , ...
+            linspace(3,0,N/2)] ; ...
+            zeros(1,N)];
+        pos = pos - mean(pos,2);
+        quat = [[ones(N/2,1),zeros(N/2,3)] ; ...
+            [zeros(N/2,3),-ones(N/2,1)]];
+
+        % Ground truth
+        groundTruth.pos = pos;
+        groundTruth.quat = quat;
+
+        % Odometry measurements
+        initState = [pos(:,1) ; quat(1,:)'];
+        dQuat = squeeze(multiprod(qLeft(qInv(quat(1:end-1,:))), ...
+            reshape(quat(2:end,:)',[4 1 length(quat)-1])))';
+
+        dPos = diff(pos');
+        dx = [dPos , dQuat];
+        N = length(pos);
+    case 'circle_6D'
+        disp('Generating 6D data on circle')
+        dtheta = 5;
+        radius = 2;
+        nLaps = 2;
+        psi = (0:dtheta:360-dtheta);
+        psi = repmat(psi,1,nLaps);
+        N = length(psi);
+        
+        % True position and orientation
+        pos = [radius * cos(psi*pi/180); radius * sin(psi*pi/180); zeros(1,length(psi))];
+        R = [reshape(cos(psi*pi/180),[1 1 N]), reshape(sin(psi*pi/180),[1 1 N]), zeros(1,1,N) ; ...
+                reshape(-sin(psi*pi/180),[1 1 N]), reshape(cos(psi*pi/180),[1 1 N]), zeros(1,1,N) ; ...
+                zeros(1,1,N), zeros(1,1,N), ones(1,1,N)];
+
+        quat = rotm2quat(R);
+
+        groundTruth.pos = pos;
+        groundTruth.quat = quat;
+
+        % Odometry measurements
+        initState = [pos(:,1) ; quat(1,:)'];
+        dPos = diff(pos');
+        dQuat = squeeze(multiprod(qLeft(qInv(quat(1:end-1,:))), ...
+            reshape(quat(2:end,:)',[4 1 length(quat)-1])))';
+        dx = [dPos, dQuat];
+    case 'bean_6D'
+        disp('Generating bean-shaped 6D data')
+        % Simulate position data
+        nLaps = 3;
+        nDataPointsPerLap = 640;
+        a = 15;
+        psi = linspace(0,nLaps*pi,nLaps * nDataPointsPerLap);
+        r = a*sin(psi).^3 + a*cos(psi).^3;
+        u = r.*cos(psi)-.3;
+        v = r.*sin(psi)-.3;
+        yu = diff(u);
+        yv = diff(v);
+        th = atan2(yv,yu); th = [th, th(end)];
+        pos = [u; v ; zeros(1,length(u))];
+        N = length(pos);
+        R = [reshape(cos(th),[1 1 N]), reshape(sin(th),[1 1 N]), zeros(1,1,N) ; ...
+                reshape(-sin(th),[1 1 N]), reshape(cos(th),[1 1 N]), zeros(1,1,N) ; ...
+                zeros(1,1,N), zeros(1,1,N), ones(1,1,N)];
+% 		R = [ones(1,1,N), zeros(1,1,N), zeros(1,1,N) ; ...
+%                zeros(1,1,N),  ones(1,1,N), zeros(1,1,N) ; ...
+%                 zeros(1,1,N), zeros(1,1,N), ones(1,1,N)];		
+        %quat = rotm2quat(R);
+% 		rot2euler(R(:, :, 2))
+        quat = rmat2quat(R)';
+% 		quat(2, :) 
+        % Center positions around zero
+        pos = pos - mean([min(pos,[],2) , max(pos,[],2)],2); 
+        
+        % Save ground truth data
+		
+        groundTruth.pos = pos; 
+        groundTruth.quat = quat;
+        
+        dPos = diff(pos'); % Resulting odometry
+		vel = dPos./ params.dt;
+		vel = [vel(1, :); vel]';
+% 		vel = ones(size(vel));
+		rots = quat2rmat(quat);
+		for i = 1 : size(vel, 2)
+			vel(:, i) = rots(:, :, i)' * vel(:, i);
+		end
+		euler = zeros(3, size(quat, 2));
+		for i = 1 : size(quat, 1)
+			[yaw, pitch, roll] = quat2angle(quat(i, :) , 'ZYX');
+			euler(:, i) = [roll, pitch, yaw]';
+		end
+		groundTruth.gt = [pos; euler; vel; zeros(3, size(pos, 2)) * 0.1; zeros(3, size(pos, 2))];
+% 		quat2euler(quat(:, 2))
+        % Odometry measurements
+        initState = [pos(:,1) ; euler(:, 1); vel(:, 1); zeros(3, 1); zeros(3, 1)]; % Initial state		
+		figure(14);
+		plot(vel(1, :), 'r.'); hold on;
+		title('vel(:, 1)');		
+end
+
+
+%% Add measurement noise to odometry by using the dynamic model to put it 
+% on the way that is assume in the model
+Qprocess = params.Qprocess * 0.0001;
+if size(Qprocess,3) == 1 % Allow for both time-varying and constant Qprocess
+      Qprocess = repmat(Qprocess,[1 1 N]);
+end
+% Run dynamic model forward 
+dt = params.dt;
+x = zeros(N,length(initState));
+y = zeros(N, 10);% bearing, elevation, doppler
+x(1, :) = initState;
+
+for i = 2:N
+	[x(i, :)] = dynModel(x(i - 1, :)', dt, Qprocess(:,:,i - 1));
+	x(i, 7 : 9) = vel(: , i);
+	x(i, 4 : 6) = euler(:, i);
+end
+Qmeas = params.Qmeas * 1e-10;
+if size(Qmeas,3) == 1 % Allow for both time-varying and constant Qprocess
+      Qmeas = repmat(Qmeas,[1 1 N]);
+end
+for i = 1 : N
+	y(i, :) = measModel(groundTruth.gt(:, i), Qmeas(:, :, i))';
+end
+dx = [diff(x(:,1:3))];
+figure(16);
+plot(groundTruth.gt(7, :), 'r-');
+title('Ground truth velocity');
+
+figure(17);
+plot(groundTruth.gt(6, :), 'r-');
+title('Ground truth yaw');
+figure(18);
+plot_meas_yaw = plot(y(:, iMeasEuler(end)), 'b-'); hold on;
+legend(plot_meas_yaw, 'measured yaw');
+title('measurement yaw');
+groundTruth.odometry = x;
+groundTruth.Qprocess = Qprocess;
+
+%% Visualize ground truth and odometry
+if makePlots && params.visualiseResults
+	figure(1); cla; hold on
+
+	plot_gt_pos = plot(groundTruth.pos(1,:), groundTruth.pos(2,:), 'k', 'LineWidth', 2);
+	plot_gt_odom = plot(groundTruth.odometry(:,1), groundTruth.odometry(:,2), 'r', 'LineWidth', 2);
+	axis equal
+% 	xlim([min(xt(:,1)) max(xt(:,1))])
+% 	ylim([min(xt(:,2)) max(xt(:,2))])
+	legend([plot_gt_pos, plot_gt_odom], {'true trajectory', 'odometry'});
+	title('True map, true trajectory, odometry')
+end
+
+end
