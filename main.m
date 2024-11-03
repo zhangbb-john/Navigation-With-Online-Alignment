@@ -20,23 +20,20 @@ folder = './';
 flag = 0; %0 simulation; 1 read data;
 debug_i = 0;
 global debug_i;
+offset_errs = [];
+pos_errs = [];
+for trial = 1 : 5
+	
+close all;
 [x0, measurements, x_true, params] = getMeas(flag, @dynModel, @measModel, folder);
-if (size(measurements, 2) > iMeasVel(3))
-	figure;
-	plot(measurements(:, iMeasVel(1)), 'r'); hold on;
-	plot(measurements(:, iMeasVel(2)), 'g'); hold on;
-	plot(measurements(:, iMeasVel(3)), 'b'); hold on;
-	title('Velocity measurements');
-end
-for i = 1 : time_length
-	'error'
-end
+
+
 x0_nonLin = x0;
-N_P = 1000; % Number of particles
+N_P = 100; % Number of particles
 
 [traj_max, traj_mean, xl_max, xl_mean, P_max, P_mean, traj_sample_iwmax] = ...
-    particleFilter(@dynModel, @measModel, measurements,...
-    x0_nonLin,params.Qprocess, params.Qmeas, N_P, params.dt, x_true);
+    particleFilter(@initialize, @dynModel, @measModel, measurements,...
+    x0_nonLin, params.Q0, params.Qprocess, params.Qmeas, N_P, params.dt, x_true);
 
 figure;
 plot(traj_max(iOffset(1), :), 'r-'); hold on;
@@ -50,21 +47,74 @@ xlabel('East [m]'); ylabel('North [m]');
 dpos = diff(x_true.gt(iPos, :)');
 dist = sum(sqrt(dpos(:, 1).^2 + dpos(:, 2).^2 + dpos(:, 3).^2));
 rmse_pos_pf = norm(rms(x_true.gt(iPos, :)' - traj_max(iPos, :)'));
-disp(['rmse is ', num2str(rmse_pos_pf), 'dist is ', num2str(dist)]);
- 
-figure;
-plot(traj_max(iVel(1), :), 'r*'); hold on;
-plot(traj_max(iVel(2), :), 'g*'); hold on;
-plot(traj_max(iVel(3), :), 'b*'); hold on;
+disp(['rmse is ', num2str(rmse_pos_pf), '; dist is ', num2str(dist)]);
+if (size(measurements, 2) > iMeasVel(3))
+	figure(iVel(1));
+	subplot(3,1,1);
+	plot(measurements(:, iMeasVel(1)), 'k'); hold on;
+	plot(traj_max(iVel(1), :), 'r-'); hold on;
+	legend('Measured velocity', 'Estimated velocity state');
+	title('Estimated velocity ');
 
-title('Estimated velocity ');
-figure(18);
-plot_est_yaw = plot(traj_max(iQuat(3), :), 'bo'); hold on;
-legend(plot_est_yaw, 'estimated yaw');
+	subplot(3,1,2);
+	plot(measurements(:, iMeasVel(2)), 'k'); hold on;
+	plot(traj_max(iVel(2), :), 'g-'); hold on;
 
+	subplot(3,1,3);
+	plot(measurements(:, iMeasVel(3)), 'k'); hold on;
+	plot(traj_max(iVel(3), :), 'b-'); hold on;
+end
+figure(iQuat(1));
+plot_est_yaw = plot(traj_max(iQuat(3), :), 'r-'); hold on;
+plot(measurements(:, iMeasEuler(3)), 'k');
+legend('estimated yaw', 'Measured yaw');
 title('Estimated yaw ');
+figure;
+subplot(3,1,1); 
+plot(traj_max(iPos(1), :), 'r-'); hold on;
+plot(x_true.gt(iPos(1), :), 'g-');
 
- function [xpred] = dynModel(xn, dt, Q)
+subplot(3,1,2); 
+plot(traj_max(iPos(2), :), 'r-'); hold on;
+plot(x_true.gt(iPos(2), :), 'g-');
+
+subplot(3,1,3); 
+plot(sqrt((traj_max(iPos(1), :) - x_true.gt(iPos(1), :)).^2 + (traj_max(iPos(2), :) - x_true.gt(iPos(2), :)).^2) , 'r-'); hold on;
+title('Error [m]')
+
+% for i = 1 : length(x_true.gt(iPos(1), :))
+% 	figure(25)
+% 	plot(x_true.gt(iPos(1), i) + rand * 1, x_true.gt(iPos(2), i) + rand *1, 'r.'); hold on;
+% 	if (mod(i, 100) == 0)
+% 		text(x_true.gt(iPos(1), i) + rand * 1, x_true.gt(iPos(2), i), ['i = ', num2str(i)]);
+% 	end
+% 	title(['i = ', num2str(i)]);
+% 	pause(0.01);
+% 	
+% end
+offset_errs = [offset_errs; abs(traj_max(iOffset(3), end) - x_true.gt(iOffset(3), end))];
+pos_errs = [pos_errs; rmse_pos_pf];
+pause(1);
+% pos_errs = [pos_errs; sqrt((traj_max(iPos(1), end) - x_true.gt(iPos(1), end)).^2 + (traj_max(iPos(2), end) - x_true.gt(iPos(2), end)).^2)];
+end
+rms(offset_errs)
+disp(['RMSE of offset is ', num2str(rms(offset_errs))]);
+disp(['RMS of position rmse for multiple trials is ', num2str(rms(pos_errs))]);
+% disp(['RMS of final position error for multiple trials is ', num2str(rms(pos_errs))]);
+
+function [xpred] = initialize(xn, Q)
+	global iPos iQuat iVel iOffset iBeacon debug_i;
+	xpred_pos = xn(iPos) + chol(Q(iPos, iPos),'lower') * randn(length(iPos),1);
+	xpred_vel = xn(iVel) + chol(Q(iVel, iVel),'lower') * randn(length(iVel),1);
+    xpred_attitude = xn(iQuat) + (chol(Q(iQuat, iQuat),'lower') * randn(length(iQuat),1));
+	xpred_offset= xn(iOffset) + (chol(Q(iOffset, iOffset),'lower') * randn(length(iOffset),1));
+	xpred_beacon = xn(iBeacon) +  (chol(Q(iBeacon, iBeacon),'lower') * randn(length(iBeacon),1));
+	NormalizeAngle = @(angle)(mod(angle + pi, 2 * pi) + (mod(angle + pi, 2 * pi) < 0) * 2 * pi) - pi;
+	xpred_attitude = NormalizeAngle(xpred_attitude);
+	xpred_offset = NormalizeAngle(xpred_offset);
+    xpred = [xpred_pos; xpred_attitude; xpred_vel; xpred_offset; xpred_beacon]; 	
+end
+function [xpred] = dynModel(xn, dt, Q)
 	global iPos iQuat iVel iOffset iBeacon debug_i;
 
     % Predict through dynamic model. Also optionally output dQuat for

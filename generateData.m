@@ -176,8 +176,8 @@ switch trajType
         th = atan2(yv,yu); th = [th, th(end)];
         pos = [u; v ; zeros(1,length(u))];
         N = length(pos);
-        R = [reshape(cos(th),[1 1 N]), reshape(sin(th),[1 1 N]), zeros(1,1,N) ; ...
-                reshape(-sin(th),[1 1 N]), reshape(cos(th),[1 1 N]), zeros(1,1,N) ; ...
+        R = [reshape(cos(th),[1 1 N]), reshape(sin(th),[1 1 N]), zeros(1, 1, N); ...
+                reshape(-sin(th),[1 1 N]), reshape(cos(th),[1 1 N]), zeros(1, 1, N); ...
                 zeros(1,1,N), zeros(1,1,N), ones(1,1,N)];
 % 		R = [ones(1,1,N), zeros(1,1,N), zeros(1,1,N) ; ...
 %                zeros(1,1,N),  ones(1,1,N), zeros(1,1,N) ; ...
@@ -207,13 +207,11 @@ switch trajType
 			[yaw, pitch, roll] = quat2angle(quat(i, :) , 'ZYX');
 			euler(:, i) = [roll, pitch, yaw]';
 		end
-		groundTruth.gt = [pos; euler; vel; zeros(3, size(pos, 2)) * 0.1; zeros(3, size(pos, 2))];
+		groundTruth.gt = [pos; euler; vel; [ones(1, size(pos, 2)) * 0.0; ones(1, size(pos, 2)) * 0.0; ones(1, size(pos, 2)) * 0.1]; ...
+			[ones(1, size(pos, 2)) * 0; ones(1, size(pos, 2)) * 0; ones(1, size(pos, 2)) * 0]];
 % 		quat2euler(quat(:, 2))
         % Odometry measurements
-        initState = [pos(:,1) ; euler(:, 1); vel(:, 1); zeros(3, 1); zeros(3, 1)]; % Initial state		
-		figure(14);
-		plot(vel(1, :), 'r.'); hold on;
-		title('vel(:, 1)');		
+        initState = [pos(:,1) ; euler(:, 1); vel(:, 1); zeros(3, 1); zeros(3, 1)]; % Initial state			
 end
 
 
@@ -234,7 +232,7 @@ for i = 2:N
 	x(i, 7 : 9) = vel(: , i);
 	x(i, 4 : 6) = euler(:, i);
 end
-Qmeas = params.Qmeas * 1e-10;
+Qmeas = params.Qmeas;% * 1e-10;
 if size(Qmeas,3) == 1 % Allow for both time-varying and constant Qprocess
       Qmeas = repmat(Qmeas,[1 1 N]);
 end
@@ -242,17 +240,9 @@ for i = 1 : N
 	y(i, :) = measModel(groundTruth.gt(:, i), Qmeas(:, :, i))';
 end
 dx = [diff(x(:,1:3))];
-figure(16);
-plot(groundTruth.gt(7, :), 'r-');
-title('Ground truth velocity');
 
-figure(17);
-plot(groundTruth.gt(6, :), 'r-');
-title('Ground truth yaw');
-figure(18);
-plot_meas_yaw = plot(y(:, iMeasEuler(end)), 'b-'); hold on;
-legend(plot_meas_yaw, 'measured yaw');
-title('measurement yaw');
+
+
 groundTruth.odometry = x;
 groundTruth.Qprocess = Qprocess;
 

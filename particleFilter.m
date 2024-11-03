@@ -1,6 +1,6 @@
 function [traj_max,traj_mean,xl_max,xl_mean,P_max,P_mean,traj_sample_iwmax] = ...
-    particleFilter(dynModel,measModel,measurements,...
-    x0_nonLin,Q,R,N_P,dt, groundTruth)
+    particleFilter(initialize, dynModel,measModel,measurements,...
+    x0_nonLin,Q0,Q,R,N_P,dt, groundTruth)
 % N_P = 100 particle number
 % measurements is 192-time measurements
 % PARTICLEFILTER - Run Rao-Blackwellized particle filter
@@ -87,20 +87,28 @@ ai = zeros(N_P,1); % Sampled ancestors
     
 %% Filter recursion
 for t=1:N_T
+	if (mod(t, round(N_T / 10)) == 0)
+		disp(['t is ', num2str(t)]);
+	end
     % Particle filter prediction
     xn_ = xn; % Copy old nonlinear states
-    if t ~= 1 % Don't do a prediction at the very first time instance
+    if t == 1 
+		for i  = 1 : N_P
+			xn(:,i) = initialize(x0_nonLin, Q0);
+		end
+	else % Don't do a prediction at the very first time instance
         for i = 1:N_P
             % Draw ancestor index...
+% 			w = ones(size(w)) * 1 / length(w);
             ai(i) = sample(w); 
             % ... and propagate that nonlinear state through dynamics
 			Qi = Q(:,:,t-1);
 			Qi(iMeasVel, iMeasVel) = Qi(iMeasVel, iMeasVel);
-            xn(:,i) = dynModel(xn_(:,ai(i)),dt(t-1),Q(:,:,t-1) ); 
+            xn(:,i) = dynModel(xn_(:,ai(i)), dt(t-1), Qi); 
 % 			xn(iQuat, i) = groundTruth.gt(iQuat, t);
 % 			xn(iOffset, i) = groundTruth.gt(iOffset, t);
 % 			xn(iVel, i) = groundTruth.gt(iVel, t);
-			xn(iOffset, i) = groundTruth.gt(iOffset, t);
+			xn(iOffset(1 : 3), i) = groundTruth.gt(iOffset(1 : 3), t);
 			xn(iBeacon, i) = groundTruth.gt(iBeacon, t);
 			
 			if (mod(i, round(N_P / 2)) == 0 && mod(t, round(N_T / 20)) == 0)
@@ -111,6 +119,7 @@ for t=1:N_T
 % 				title('particle yaw');
 			end
 		end
+	
         % Save trajectory with shuffled ancestor indices, e.g. to visualise
     end
     
@@ -122,6 +131,8 @@ for t=1:N_T
 % 		plot(t, yt(iMeasEuler(3)), 'bo'); hold on;
 % 		title('Yaw measurement');
 % 	end
+	bearing_hat = [];
+	elevation_hat = [];
     for i=1:N_P 
 		% Linearize measurement model
 		Qmeas = eye(size(R, 1)) * 1e-20;
@@ -134,7 +145,7 @@ for t=1:N_T
 		e = e(ind);
 		NormalizeAngle = @(angle)(mod(angle + pi, 2 * pi) + (mod(angle + pi, 2 * pi) < 0) * 2 * pi) - pi;
 		e(iMeasEuler) = NormalizeAngle(e(iMeasEuler));
-		if (length(e) > iMeasDoa(end))
+		if (length(e) >= iMeasDoa(end))
 			e(iMeasDoa) = NormalizeAngle(e(iMeasDoa));
 		end
 % 		figure(22);
@@ -148,8 +159,19 @@ for t=1:N_T
         end
         v = cS\e;
         logw(i) = -sum(log(diag(cS))) - .5*(v'*v) - .5*numel(e)*log(2*pi);
+		bearing_hat = [bearing_hat, yhat(iMeasDoa(1))];
+		elevation_hat = [elevation_hat, yhat(iMeasDoa(2))];
+	
     end
-
+% 	figure(20);
+% 	subplot(2, 1, 1);
+% 	plot(t, bearing_hat, 'b.'); hold on;
+% 	plot(t, yt(iMeasDoa(1)), 'ro'); hold on;
+% 	title('bearing prediction');
+% 	subplot(2, 1, 2);
+% 	plot(t, elevation_hat, 'b.'); hold on;
+% 	plot(t, yt(iMeasDoa(2)), 'ro'); hold on;
+% 	title('elevation prediction');	
     % Normalize by log-sum-exp trick
     c = max(logw);
     lse = c + log(sum(exp(logw - c)));
@@ -158,8 +180,21 @@ for t=1:N_T
     % Store trajectories
     [~,iw_max] = max(w);
     traj_max(:, t) = xn(:, iw_max);   % Store maximum-weight particle
-    traj_mean(:, t) = sum(xn.*w, 2);  % Store weighted-mean particle
+    traj_mean(:, t) = sum(xn .* w, 2);  % Store weighted-mean particle	
 
+% 	figure(21);
+% 	std_px = std(xn(iPos(1),:)); std_py = std(xn(iPos(2),:)); std_pz = std(xn(iPos(3),:));
+% 	std_pos = norm([std_px, std_py, std_pz]);
+% 	subplot(3, 1, 1);
+% 	plot(t, std_pos, 'r.'); hold on;
+% 	title('std of position');
+% 	std_offsetx = std(xn(iOffset(1),:)); std_offsety = std(xn(iOffset(2),:)); std_offsetz = std(xn(iOffset(3),:));
+% 	subplot(3, 1, 2);
+% 	plot(t, std_offsetz, 'b.'); hold on;
+% 	title('std of offset');
+% 	subplot(3, 1, 3);
+% 	plot(t, xn(iOffset(3), iw_max), 'b.'); hold on;
+% 	title('Estimated yaw offset');	
 end
 xl_max = 0; xl_mean=0; P_max =0; P_mean =0;
 %% Extract final map and trajectory
