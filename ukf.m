@@ -1,86 +1,74 @@
-function [traj_max, traj_mean, xl_max, xl_mean, P_max, P_mean, traj_sample_iwmax] = ...
-    ukf(dynModel, measModel, measurements, x0_nonLin, P0_lin, Q, R, dt, groundTruth)
-% UKF - Run Unscented Kalman Filter
-%
-% Syntax:
-%   [traj_max, traj_mean, xl_max, xl_mean, P_max, P_mean, traj_sample_iwmax] = 
-%       ukf(dynModel, measModel, measurements, ...
-%           x0_nonLin, P0_lin, Q, R, dt, groundTruth)
-%
-% In:
-%   dynModel    - Dynamical model function handle
-%   measModel   - Measurement model function handle
-%   measurements - Observations [N_T x n_y]
-%   x0_nonLin   - Initial non-linear state [nNonLin x 1]
-%   P0_lin      - Initial state covariance [nNonLin x nNonLin]
-%   Q           - Process noise covariance [nw x nw]
-%   R           - Measurement noise covariance [n_y x n_y]
-%   dt          - Time step [N_T x 1] or scalar
-%
-% Out:
-%   traj_max    - Highest-weight trajectory (nonlinear)
-%   traj_mean   - Weighted-mean trajectory (nonlinear) 
-%   xl_max      - Map of highest weight particle
-%   xl_mean     - Weighted mean map
-%   P_max       - Covariance of highest weight particle
-%   P_mean      - Weighted mean covariance
-%   traj_sample_iwmax - Trajectory of particle with highest weight at last time instance
 
-nNonLin = size(x0_nonLin, 1);
-N_T = size(measurements, 1);
+function [traj_max,traj_mean,traj_std,P_mean,traj_sample_iwmax] = ...
+    ukf(initialize, dynModel,measModel,measurements,...
+    x0_nonLin,Q0,Q,R,dt, groundTruth)
+disp('Performing UKF ...');
+iPos = 1 : 3;
+iQuat = 4 : 6;
+iVel = 7 : 9;
+iOffset = 10 : 12;
+iBeacon = 13 : 15;
+iMeasEuler = 1 : 3;
+iMeasVel = 4 : 6;
+iMeasDoa = 7 : 8;
+iMeasDoppler = 9 : 10;
 
-% Initialize states and covariance
-x = x0_nonLin;
-P = P0_lin;
+nNonLin = size(x0_nonLin,1);
+N_T = size(measurements,1);% original Y is measurement * state_num
 
-traj_max = nan(nNonLin, N_T);
-traj_mean = nan(nNonLin, N_T);
+% Reserve space for estimates.
+traj_max = zeros(nNonLin, N_T);
+U_PP = zeros(nNonLin, nNonLin, N_T);
 
-% UKF loop
-for t = 1:N_T
-    if (mod(t, round(N_T / 10)) == 0)
-        disp(['t is ', num2str(t)]);
-    end
+% Estimate with UKF
+for k=1:N_T
+	if (mod(k, round(N_T / 10)) == 0)
+		disp(['time step k is ', num2str(k)])
+	end
+	if (k == 1)
+		M = initialize(x0_nonLin, Q0 * 1e-10);
+		P = Q0;
+	else
+		[M, P] = ukf_predict1(M,P,dynModel,Q, dt, 1, 2, 0, 0, [iQuat, iOffset]);
+		
+		eigenvalues = eig(P);
+		isNotPositiveDefinite = any(eigenvalues <= 1e-15); % Not PD if any eigenvalue is <= 0
+		if (isNotPositiveDefinite)
+			P = Q0;
+		end 
+		
+		[M,P] = ukf_update1(M,P,measurements(k,:)',measModel,R,[], 1, 2, 0, 0, [iQuat, iOffset], [iMeasEuler, iMeasDoa]);
+		eigenvalues = eig(P);
+		isNotPositiveDefinite = any(eigenvalues <= 1e-15); % Not PD if any eigenvalue is <= 0
+		if (isNotPositiveDefinite)
+			figure(iBeacon(end) + 1);
+			idx = [iPos(1) iQuat(3) iVel(1) iOffset(3) iBeacon(1)];
+			for i = 1 : length(idx)
+				subplot(length(idx), 1, i);
+				plot(traj_std(idx(i), 1 : (k - 1)), 'k');
+			end
+			figure(50);
+			plot(traj_max(iPos(1), 1 : (k - 1)), 'r.'); hold on;
+			plot(traj_max(iPos(2), 1 : (k - 1)), 'g.'); hold on;	
+			plot(traj_max(iPos(3), 1 : (k - 1)), 'b.'); hold on;
+			figure(51)
+			plot3(traj_max(iPos(1), 1 : k), traj_max(iPos(2), 1 : k), traj_max(iPos(3), 1 : k), 'r-');
+			for kk = 1 : 5
+				min_diag_value = 1e-6; % Minimum desired value for diagonals
+				diag(max(min_diag_value - diag(P), 0));
+				P = P + diag(max(min_diag_value - diag(P), 0));
+			end
+% 			P = Q0;
+		end 
 
-    % Time Update (Prediction)
-    [x, P] = ukf_predict(dynModel, x, P, Q, dt(t));
+	end
+	traj_max(:,k)   = M;
+	U_PP(:,:,k) = P;
+	traj_std(:, k) = sqrt(diag(P));
 
-    % Measurement Update
-    y = measurements(t, :)'; % Current measurement
-    [x, P] = ukf_update(measModel, x, P, y, R);
-    
-    % Store trajectories
-    traj_max(:, t) = x;  % Store current state
-    traj_mean(:, t) = x; % For UKF, mean is the state itself
 end
+traj_mean = [];
+P_mean = [] ;
+traj_sample_iwmax = [];
 
-xl_max = x;  % Final state
-xl_mean = x; % For UKF, mean is the state itself
-P_max = P;   % Final covariance
-P_mean = P;  % For UKF, mean covariance is the state covariance
-traj_sample_iwmax = traj_max(:, N_T);  % Last state
-
-end
-
-function [x, P] = ukf_predict(dynModel, x, P, Q, dt)
-    % Implement the UKF prediction step
-    % Calculate sigma points, propagate through dynModel, and compute the mean and covariance
-    % (Implementation details required)
-    
-    % Example (replace with actual UKF prediction logic):
-    x = dynModel(x, dt, Q);
-    P = P + Q; % Simplified update; adjust for actual model
-end
-
-function [x, P] = ukf_update(measModel, x, P, y, R)
-    % Implement the UKF measurement update step
-    % Calculate sigma points, propagate through measModel, compute the innovations, 
-    % and update the state and covariance
-    % (Implementation details required)
-    
-    % Example (replace with actual UKF update logic):
-    yhat = measModel(x); % Predicted measurement
-    innovation = y - yhat;
-    P = P + R; % Update covariance; adjust for actual model
-    x = x + innovation; % Simplified state update; adjust for actual model
 end

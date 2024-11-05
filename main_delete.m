@@ -1,6 +1,4 @@
 close all;
-clear;
-
 addpath(genpath('./.'))
 global iPos iQuat iVel iOffset iBeacon;
 global iMeasEuler iMeasVel iMeasDoa iMeasDoppler;
@@ -18,24 +16,19 @@ iMeasDoppler = 9 : 10;
 folder = './';
 
 flag = 0; %0 simulation; 1 read data;
-global debug_i;
 debug_i = 0;
-
+global debug_i;
 offset_errs = [];
 pos_errs = [];
-pos_final_errs = [];
-filter = 'pf';%ukf, ekf
-for trial = 1 : 4
-tic;
+for trial = 1 : 10
 close all;
 [x0, measurements, x_true, params] = getMeas(flag, @dynModel, @measModel, folder);
 x0_nonLin = x0;
 N_P = 1000; % Number of particles
 
-case (fitler
-[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
-    ukf(@initialize, @dynModel, @measModel, measurements,...
-    x0_nonLin, params.Q0, params.Qprocess, params.Qmeas, params.dt, x_true);
+[traj_max, traj_mean, xl_max, xl_mean, traj_std, P_mean, traj_sample_iwmax] = ...
+    particleFilter(@initialize, @dynModel, @measModel, measurements,...
+    x0_nonLin, params.Q0, params.Qprocess, params.Qmeas, N_P, params.dt, x_true);
 
 figure(iOffset(1));
 plot(traj_max(iOffset(1), :), 'r-'); hold on;
@@ -75,11 +68,10 @@ figure(iPos(2));
 subplot(3,1,1); 
 plot(traj_max(iPos(1), :), 'r-'); hold on;
 plot(x_true.gt(iPos(1), :), 'g-');
-title('x position [m]');
+
 subplot(3,1,2); 
 plot(traj_max(iPos(2), :), 'r-'); hold on;
 plot(x_true.gt(iPos(2), :), 'g-');
-title('y position [m]');
 
 subplot(3,1,3); 
 plot(sqrt((traj_max(iPos(1), :) - x_true.gt(iPos(1), :)).^2 + (traj_max(iPos(2), :) - x_true.gt(iPos(2), :)).^2) , 'r-'); hold on;
@@ -87,7 +79,6 @@ title('Error [m]')
 figure(iPos(3));
 plot3(traj_max(iPos(1), :), traj_max(iPos(2), :), traj_max(iPos(3), :), 'r-'); hold on;
 plot3(x_true.gt(iPos(1), :), x_true.gt(iPos(2), :), x_true.gt(iPos(3), :), 'g-');
-title('trajectory');
 
 figure(iBeacon(end) + 1);
 idx = [iPos(1) iQuat(3) iVel(1) iOffset(3) iBeacon(1)];
@@ -107,14 +98,13 @@ end
 % end
 offset_errs = [offset_errs; abs(traj_max(iOffset(3), end) - x_true.gt(iOffset(3), end))];
 pos_errs = [pos_errs; rmse_pos_pf];
-pos_final_errs = [pos_final_errs; sqrt((traj_max(iPos(1), end) - x_true.gt(iPos(1), end)).^2 + (traj_max(iPos(2), end) - x_true.gt(iPos(2), end)).^2)];
 pause(1);
-disp([num2str(trial), '-th trial takes ', num2str(toc), ' seconds']);
+% pos_errs = [pos_errs; sqrt((traj_max(iPos(1), end) - x_true.gt(iPos(1), end)).^2 + (traj_max(iPos(2), end) - x_true.gt(iPos(2), end)).^2)];
 end
 rms(offset_errs)
 disp(['RMSE of offset is ', num2str(rms(offset_errs))]);
 disp(['RMS of position rmse for multiple trials is ', num2str(rms(pos_errs))]);
-disp(['RMS of final position error for multiple trials is ', num2str(rms(pos_final_errs))]);
+% disp(['RMS of final position error for multiple trials is ', num2str(rms(pos_errs))]);
 
 function [xpred] = initialize(xn, Q)
 	global iPos iQuat iVel iOffset iBeacon debug_i;
@@ -129,39 +119,28 @@ function [xpred] = initialize(xn, Q)
     xpred = [xpred_pos; xpred_attitude; xpred_vel; xpred_offset; xpred_beacon]; 	
 end
 function [xpred] = dynModel(xn, dt, Q)
-	
 	global iPos iQuat iVel iOffset iBeacon debug_i;
 
     % Predict through dynamic model. Also optionally output dQuat for
     % generating odometry data
 	R = euler2rot(xn(iQuat));
 %     xpred_pos = xn(iPos) + xn(iVel); 
-	if nargin == 2 
-		xpred_pos = xn(iPos) + R * dt * xn(iVel);
-		xpred_vel = xn(iVel);
+    xpred_pos = xn(iPos) + R * dt * xn(iVel) + chol(dt * Q(iPos, iPos),'lower') * randn(3,1);
 
-		xpred_attitude = xn(iQuat);
-		xpred_offset= xn(iOffset);
-		xpred_beacon = xn(iBeacon);		
-	else 
-		xpred_pos = xn(iPos) + R * dt * xn(iVel) + chol(dt * Q(iPos, iPos),'lower') * randn(3,1);
+% 	figure(11)
+% 	plot(xpred_pos(1), xpred_pos(2), 'r.'); hold on;
 
-	% 	figure(11)
-	% 	plot(xpred_pos(1), xpred_pos(2), 'r.'); hold on;
-
-		xpred_vel = xn(iVel) + chol(dt * Q(iVel, iVel),'lower') * randn(3,1);
-	% 	figure(12);
-		debug_i = debug_i + 1;
-	% 	plot(debug_i, xpred_vel(1), 'r.'); hold on;
-	% 	title('xpred_vel 1');
-		xpred_attitude = xn(iQuat) + (chol(dt * Q(iQuat, iQuat),'lower') * randn(3,1));
-		xpred_offset= xn(iOffset) + (chol(dt * Q(iOffset, iOffset),'lower') * randn(3,1));
-		xpred_beacon = xn(iBeacon) +  (chol(dt * Q(iBeacon, iBeacon),'lower') * randn(3,1));
-	end
+	xpred_vel = xn(iVel) + chol(dt * Q(iVel, iVel),'lower') * randn(3,1);
+% 	figure(12);
+	debug_i = debug_i + 1;
+% 	plot(debug_i, xpred_vel(1), 'r.'); hold on;
+% 	title('xpred_vel 1');
+    xpred_attitude = xn(iQuat) + (chol(dt * Q(iQuat, iQuat),'lower') * randn(3,1));
+	xpred_offset= xn(iOffset) + (chol(dt * Q(iOffset, iOffset),'lower') * randn(3,1));
+	xpred_beacon = xn(iBeacon) +  (chol(dt * Q(iBeacon, iBeacon),'lower') * randn(3,1));
 	NormalizeAngle = @(angle)(mod(angle + pi, 2 * pi) + (mod(angle + pi, 2 * pi) < 0) * 2 * pi) - pi;
 	xpred_attitude = NormalizeAngle(xpred_attitude);
 	xpred_offset = NormalizeAngle(xpred_offset);
-	
     xpred = [xpred_pos; xpred_attitude; xpred_vel; xpred_offset; xpred_beacon]; 
 end
 function measurement = measModel(xn, Q)
@@ -179,21 +158,12 @@ function measurement = measModel(xn, Q)
     base2beaconInUSBL = Base2USBL' * base2beaconInbase;   
     velocity = xn(iVel);
 	measurement = zeros(10, 1);
-	if size(Q, 1) == 0
-		measurement(iMeasEuler) = [euler(1); euler(2); euler(3)];
-
-		measurement(iMeasVel) = [velocity(1); velocity(2); velocity(3)];
-		measurement(iMeasDoa) = [atan2(base2beaconInUSBL(2), base2beaconInUSBL(1)); asin(base2beaconInUSBL(3) / norm(base2beaconInUSBL))];	
-		measurement(iMeasDoppler) = [base2beaconInbase' * velocity; xn(iBeacon(end))]; 
-	else 
-		measurement(iMeasEuler) = [euler(1); euler(2); euler(3)] + chol(Q(iMeasEuler, iMeasEuler),'lower') * randn(3,1);
-		measurement(iMeasVel) = [velocity(1); velocity(2); velocity(3)] + chol(Q(iMeasVel, iMeasVel),'lower') * randn(3,1);
-		measurement(iMeasDoa) = [atan2(base2beaconInUSBL(2), base2beaconInUSBL(1)); asin(base2beaconInUSBL(3) / norm(base2beaconInUSBL))] ...
-			+ chol(Q(iMeasDoa, iMeasDoa),'lower') * randn(2,1);
-		measurement(iMeasDoppler) = [base2beaconInbase' * velocity; xn(iBeacon(end))] + chol(Q(iMeasDoppler, iMeasDoppler),'lower') * randn(2,1); 
-	end
+	measurement(iMeasEuler) = [euler(1); euler(2); euler(3)] + chol(Q(iMeasEuler, iMeasEuler),'lower') * randn(3,1);
 	NormalizeAngle = @(angle)(mod(angle + pi, 2 * pi) + (mod(angle + pi, 2 * pi) < 0) * 2 * pi) - pi;
 	measurement(iMeasEuler) = NormalizeAngle(measurement(iMeasEuler));
+	measurement(iMeasVel) = [velocity(1); velocity(2); velocity(3)] + chol(Q(iMeasVel, iMeasVel),'lower') * randn(3,1);
+    measurement(iMeasDoa) = [atan2(base2beaconInUSBL(2), base2beaconInUSBL(1)); asin(base2beaconInUSBL(3) / norm(base2beaconInUSBL))] ...
+		+ chol(Q(iMeasDoa, iMeasDoa),'lower') * randn(2,1);
 	measurement(iMeasDoa) = NormalizeAngle(measurement(iMeasDoa));
-	
+    measurement(iMeasDoppler) = [base2beaconInbase' * velocity; xn(iBeacon(end))] + chol(Q(iMeasDoppler, iMeasDoppler),'lower') * randn(2,1); 
 end

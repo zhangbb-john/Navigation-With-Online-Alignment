@@ -1,4 +1,4 @@
-function [traj_max,traj_mean,xl_max,xl_mean,P_max,P_mean,traj_sample_iwmax] = ...
+function [traj_max,traj_mean,xl_max,xl_mean,traj_std,P_mean,traj_sample_iwmax] = ...
     particleFilter(initialize, dynModel,measModel,measurements,...
     x0_nonLin,Q0,Q,R,N_P,dt, groundTruth)
 % N_P = 100 particle number
@@ -84,7 +84,9 @@ traj_mean = nan(nNonLin,N_T); % Weighted-mean trajectory
 yhattraj = nan(size(measurements,2), N_T); % Predicted measurement by the maximum-weight particle
 
 ai = zeros(N_P,1); % Sampled ancestors
-    
+traj_P = zeros((nNonLin), (nNonLin), N_T);
+traj_std = zeros(nNonLin, N_T);
+NormalizeAngle = @(angle)(mod(angle + pi, 2 * pi) + (mod(angle + pi, 2 * pi) < 0) * 2 * pi) - pi;
 %% Filter recursion
 for t=1:N_T
 	if (mod(t, round(N_T / 10)) == 0)
@@ -97,19 +99,24 @@ for t=1:N_T
 			xn(:,i) = initialize(x0_nonLin, Q0);
 		end
 	else % Don't do a prediction at the very first time instance
+
+% 		if (mod(t, round(N_T / 10)) == 0)
+% 			w = ones(size(w)) * 1 / length(w);
+% 		end
+% 		figure(23); histogram(w, 5); title('Histogram of weights with 5 
+% 		Bins'); xlabel('weights'); ylabel('frequency');
+	
         for i = 1:N_P
             % Draw ancestor index...
-% 			w = ones(size(w)) * 1 / length(w);
             ai(i) = sample(w); 
             % ... and propagate that nonlinear state through dynamics
 			Qi = Q(:,:,t-1);
-			Qi(iMeasVel, iMeasVel) = Qi(iMeasVel, iMeasVel);
             xn(:,i) = dynModel(xn_(:,ai(i)), dt(t-1), Qi); 
 % 			xn(iQuat, i) = groundTruth.gt(iQuat, t);
 % 			xn(iOffset, i) = groundTruth.gt(iOffset, t);
 % 			xn(iVel, i) = groundTruth.gt(iVel, t);
-			xn(iOffset(1 : 3), i) = groundTruth.gt(iOffset(1 : 3), t);
-			xn(iBeacon, i) = groundTruth.gt(iBeacon, t);
+% 			xn(iOffset(1 : 2), i) = groundTruth.gt(iOffset(1 : 2), t);
+% 			xn(iBeacon, i) = groundTruth.gt(iBeacon, t);
 			
 			if (mod(i, round(N_P / 2)) == 0 && mod(t, round(N_T / 20)) == 0)
 % 				figure(20);
@@ -140,10 +147,11 @@ for t=1:N_T
 		% Compute innovations and their covariances
 		e = yt' - yhat;
 		SS = R;
+		SS(iMeasDoa, iMeasDoa) = SS(iMeasDoa, iMeasDoa);
 		% Strip away those that are not observed
 		ind = ~isnan(yt);
 		e = e(ind);
-		NormalizeAngle = @(angle)(mod(angle + pi, 2 * pi) + (mod(angle + pi, 2 * pi) < 0) * 2 * pi) - pi;
+		
 		e(iMeasEuler) = NormalizeAngle(e(iMeasEuler));
 		if (length(e) >= iMeasDoa(end))
 			e(iMeasDoa) = NormalizeAngle(e(iMeasDoa));
@@ -158,10 +166,12 @@ for t=1:N_T
             cS = chol(SS+jitter*eye(size(SS,1)),'lower');
         end
         v = cS\e;
+		%[maxv, maxi] = max(v);
+		%disp(['max index is ', num2str(maxi)]);
         logw(i) = -sum(log(diag(cS))) - .5*(v'*v) - .5*numel(e)*log(2*pi);
 		bearing_hat = [bearing_hat, yhat(iMeasDoa(1))];
 		elevation_hat = [elevation_hat, yhat(iMeasDoa(2))];
-	
+
     end
 % 	figure(20);
 % 	subplot(2, 1, 1);
@@ -181,7 +191,16 @@ for t=1:N_T
     [~,iw_max] = max(w);
     traj_max(:, t) = xn(:, iw_max);   % Store maximum-weight particle
     traj_mean(:, t) = sum(xn .* w, 2);  % Store weighted-mean particle	
-
+	cov = zeros(size(xn, 1), size(xn, 1));
+	for i = 1:N_P
+		diff_state = (traj_mean(:, t) - xn(:,i));
+		diff_state(iQuat) = NormalizeAngle(diff_state(iQuat));
+		diff_state(iOffset) = NormalizeAngle(diff_state(iOffset));
+		
+		cov = w(i) * (diff_state * diff_state');
+	end
+	traj_P(:, :, t) = cov;
+	traj_std(:, t) = sqrt(diag(cov));
 % 	figure(21);
 % 	std_px = std(xn(iPos(1),:)); std_py = std(xn(iPos(2),:)); std_pz = std(xn(iPos(3),:));
 % 	std_pos = norm([std_px, std_py, std_pz]);
@@ -196,7 +215,6 @@ for t=1:N_T
 % 	plot(t, xn(iOffset(3), iw_max), 'b.'); hold on;
 % 	title('Estimated yaw offset');	
 end
-xl_max = 0; xl_mean=0; P_max =0; P_mean =0;
 %% Extract final map and trajectory
 % Map of highest weight particle and its covariance
 % xl_max = xl(:,iw_max);
@@ -204,10 +222,7 @@ xl_max = 0; xl_mean=0; P_max =0; P_mean =0;
   
 % Weighted mean map and covariance
 % xl_mean = sum(xl.*w,2);
-% P_mean = zeros(length(xl_mean));
-% for i = 1:N_P
-%     P_mean = w(i) * (P(:,:,i) + (xl_mean - xl(:,i)) * (xl_mean - xl(:,i))');
-% end
+
   
 % Trajectory of particle with highest weight at last time instance
 traj_sample_iwmax = traj_max(:,t);
