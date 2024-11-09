@@ -218,8 +218,8 @@ switch trajType
         ellipse_y = 50;
         z = 50;                                                  
         K1 = 10;     
-		t_end = 6000;
-		circle_num = 8;
+		t_end = 750;
+		circle_num = 1;
         K = 2 * pi / (t_end / circle_num); 
 		t = 0 : params.dt : t_end;
         pos = [ellipse_x * cos(K * t) - ellipse_x; ellipse_y * sin(K * t); z * sin(K1 * K * t)];
@@ -245,9 +245,9 @@ switch trajType
 		
         % Save ground truth data
         groundTruth.pos = pos; 
-        groundTruth.quat = quat;
-		groundTruth.gt = [pos; euler; vel; [ones(1, size(pos, 2)) * 0.0; ones(1, size(pos, 2)) * 0.0; ones(1, size(pos, 2)) * 0.1]; ...
-			[ones(1, size(pos, 2)) * 0; ones(1, size(pos, 2)) * 0; ones(1, size(pos, 2)) * 0]];
+        groundTruth.quat = quat;  
+		groundTruth.gt = [pos; euler; vel; [ones(1, size(pos, 2)) * 0.0349; ones(1, size(pos, 2)) * 0.0698; ones(1, size(pos, 2)) * 0.1047]; ...
+			[ones(1, size(pos, 2)) * -50.0; ones(1, size(pos, 2)) * 20.0; ones(1, size(pos, 2)) * 10.0]];
 % 		quat2euler(quat(:, 2))
         % Odometry measurements
         initState = [pos(:,1) ; euler(:, 1); vel(:, 1); zeros(3, 1); zeros(3, 1)]; % Initial state			

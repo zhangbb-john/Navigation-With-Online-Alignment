@@ -67,7 +67,7 @@ for k=1:N_T
 	traj_std(:, k) = sqrt(diag(P));
 
 end
-traj_mean = [];
+traj_mean = traj_max;
 P_mean = [] ;
 traj_sample_iwmax = [];
 

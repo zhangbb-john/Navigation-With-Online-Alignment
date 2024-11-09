@@ -4,9 +4,9 @@ if flag == 1
 else
 	% Default settings
 	params = [];
-	Qparam = [1e-4, 1e-4, 1e-2, 1e-8, 1e-6];
-	Q0param = [1e-4, 1e-4, 1e-4, 1e-2, 1e-6];
-	Rparam = [1, 16e-4, 0.0175^2, 1e4];
+	Qparam = [1e-4, 1e-4, 1e-2, 1e-6, 4e-2];
+	Q0param = [1e-4, 1e-4, 1e-4, 4e-2, 900];
+	Rparam = [1, 16e-4, 0.0175^2, 1];
 
 	Qpos = diag(20 * ones(1, 3) * Qparam(1));
 	Qeuler = diag(20 * [1, 1, 4] * Qparam(2));
@@ -18,7 +18,7 @@ else
 	Q0pos = diag(ones(1, 3) * Q0param(1));
 	Q0euler = diag([1 1 4] * Q0param(2));
 	Q0vel = diag(ones(1, 3) * Q0param(3));
-	Q0offset = diag([1e-4, 1e-4, 1]* Q0param(4));
+	Q0offset = diag([1, 1, 1]* Q0param(4));
 	Q0beacon = diag(ones(1, 3) * Q0param(5));
 
 	Q0 = blkdiag(Q0pos, Q0euler, Q0vel, Q0offset, Q0beacon);

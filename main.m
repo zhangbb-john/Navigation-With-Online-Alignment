@@ -25,25 +25,32 @@ offset_errs = [];
 pos_errs = [];
 pos_final_errs = [];
 filter = 'pf';%ukf, ekf
-for trial = 1 : 4
+makeplots = false;
+for trial = 1 : 2
 tic;
+pause(5);
 close all;
 [x0, measurements, x_true, params] = getMeas(flag, @dynModel, @measModel, folder);
 x0_nonLin = x0;
-N_P = 1000; % Number of particles
+N_P = 100; % Number of particles
 
-case (fitler
-[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
-    ukf(@initialize, @dynModel, @measModel, measurements,...
-    x0_nonLin, params.Q0, params.Qprocess, params.Qmeas, params.dt, x_true);
-
+switch filter
+	case 'ukf'
+		[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
+			ukf(@initialize, @dynModel, @measModel, measurements,...
+			x0_nonLin, params.Q0, params.Qprocess, params.Qmeas, params.dt, x_true);
+	case 'pf'
+		[traj_max, traj_mean, xl_max, xl_mean, traj_std, P_mean, traj_sample_iwmax] = ...
+			particleFilter(@initialize, @dynModel, @measModel, measurements,...
+			x0_nonLin, params.Q0, params.Qprocess, params.Qmeas, N_P, params.dt, x_true, makeplots);		
+end
 figure(iOffset(1));
-plot(traj_max(iOffset(1), :), 'r-'); hold on;
-plot(traj_max(iOffset(2), :), 'g-'); hold on;
-plot(traj_max(iOffset(3), :), 'b-'); hold on;
+plot(traj_mean(iOffset(1), :), 'r-'); hold on;
+plot(traj_mean(iOffset(2), :), 'g-'); hold on;
+plot(traj_mean(iOffset(3), :), 'b-'); hold on;
 title('Offset');
 figure(iPos(1));
-plot(traj_max(iPos(1), :), traj_max(iPos(2), :), 'r-'); hold on;
+plot(traj_mean(iPos(1), :), traj_mean(iPos(2), :), 'r-'); hold on;
 title('Trajectory');
 xlabel('East [m]'); ylabel('North [m]');
 dpos = diff(x_true.gt(iPos, :)');
@@ -54,46 +61,52 @@ if (size(measurements, 2) > iMeasVel(3))
 	figure(iVel(1));
 	subplot(3,1,1);
 	plot(measurements(:, iMeasVel(1)), 'k'); hold on;
-	plot(traj_max(iVel(1), :), 'r-'); hold on;
+	plot(traj_mean(iVel(1), :), 'r-'); hold on;
 	legend('Measured velocity', 'Estimated velocity state');
 	title('Estimated velocity ');
 
 	subplot(3,1,2);
 	plot(measurements(:, iMeasVel(2)), 'k'); hold on;
-	plot(traj_max(iVel(2), :), 'g-'); hold on;
+	plot(traj_mean(iVel(2), :), 'g-'); hold on;
 
 	subplot(3,1,3);
 	plot(measurements(:, iMeasVel(3)), 'k'); hold on;
-	plot(traj_max(iVel(3), :), 'b-'); hold on;
+	plot(traj_mean(iVel(3), :), 'b-'); hold on;
 end
 figure(iQuat(1));
-plot_est_yaw = plot(traj_max(iQuat(3), :), 'r-'); hold on;
+subplot(2, 1, 1);
+plot_est_yaw = plot(traj_mean(iQuat(3), :), 'r-'); hold on;
 plot(measurements(:, iMeasEuler(3)), 'k');
 legend('estimated yaw', 'Measured yaw');
 title('Estimated yaw ');
+subplot(2, 1, 2);
+NormalizeAngle = @(angle)(mod(angle + pi, 2 * pi) + (mod(angle + pi, 2 * pi) < 0) * 2 * pi) - pi;
+
+plot(NormalizeAngle(traj_mean(iQuat(3), :) - measurements(:, iMeasEuler(3))'), 'r-'); hold on;
+title('Yaw error');
 figure(iPos(2));
 subplot(3,1,1); 
-plot(traj_max(iPos(1), :), 'r-'); hold on;
+plot(traj_mean(iPos(1), :), 'r-'); hold on;
 plot(x_true.gt(iPos(1), :), 'g-');
 title('x position [m]');
 subplot(3,1,2); 
-plot(traj_max(iPos(2), :), 'r-'); hold on;
+plot(traj_mean(iPos(2), :), 'r-'); hold on;
 plot(x_true.gt(iPos(2), :), 'g-');
 title('y position [m]');
 
 subplot(3,1,3); 
-plot(sqrt((traj_max(iPos(1), :) - x_true.gt(iPos(1), :)).^2 + (traj_max(iPos(2), :) - x_true.gt(iPos(2), :)).^2) , 'r-'); hold on;
+plot(sqrt((traj_mean(iPos(1), :) - x_true.gt(iPos(1), :)).^2 + (traj_mean(iPos(2), :) - x_true.gt(iPos(2), :)).^2) , 'r-'); hold on;
 title('Error [m]')
 figure(iPos(3));
-plot3(traj_max(iPos(1), :), traj_max(iPos(2), :), traj_max(iPos(3), :), 'r-'); hold on;
+plot3(traj_mean(iPos(1), :), traj_mean(iPos(2), :), traj_mean(iPos(3), :), 'r-'); hold on;
 plot3(x_true.gt(iPos(1), :), x_true.gt(iPos(2), :), x_true.gt(iPos(3), :), 'g-');
 title('trajectory');
 
-figure(iBeacon(end) + 1);
+figure(iBeacon(end) + 2);
 idx = [iPos(1) iQuat(3) iVel(1) iOffset(3) iBeacon(1)];
 for i = 1 : length(idx)
 	subplot(length(idx), 1, i);
-	plot(traj_std(idx(i), :), 'k');
+	plotBoxplot(traj_std(idx(i), :));
 end
 % for i = 1 : length(x_true.gt(iPos(1), :))
 % 	figure(25)
@@ -105,9 +118,9 @@ end
 % 	pause(0.01);
 % 	
 % end
-offset_errs = [offset_errs; abs(traj_max(iOffset(3), end) - x_true.gt(iOffset(3), end))];
+offset_errs = [offset_errs; norm([traj_mean(iOffset, end) - x_true.gt(iOffset, end)])];
 pos_errs = [pos_errs; rmse_pos_pf];
-pos_final_errs = [pos_final_errs; sqrt((traj_max(iPos(1), end) - x_true.gt(iPos(1), end)).^2 + (traj_max(iPos(2), end) - x_true.gt(iPos(2), end)).^2)];
+pos_final_errs = [pos_final_errs; sqrt((traj_mean(iPos(1), end) - x_true.gt(iPos(1), end)).^2 + (traj_mean(iPos(2), end) - x_true.gt(iPos(2), end)).^2)];
 pause(1);
 disp([num2str(trial), '-th trial takes ', num2str(toc), ' seconds']);
 end
@@ -190,7 +203,7 @@ function measurement = measModel(xn, Q)
 		measurement(iMeasVel) = [velocity(1); velocity(2); velocity(3)] + chol(Q(iMeasVel, iMeasVel),'lower') * randn(3,1);
 		measurement(iMeasDoa) = [atan2(base2beaconInUSBL(2), base2beaconInUSBL(1)); asin(base2beaconInUSBL(3) / norm(base2beaconInUSBL))] ...
 			+ chol(Q(iMeasDoa, iMeasDoa),'lower') * randn(2,1);
-		measurement(iMeasDoppler) = [base2beaconInbase' * velocity; xn(iBeacon(end))] + chol(Q(iMeasDoppler, iMeasDoppler),'lower') * randn(2,1); 
+		measurement(iMeasDoppler) = [base2beaconInbase' * velocity / norm(base2beaconInbase); xn(iBeacon(end))] + chol(Q(iMeasDoppler, iMeasDoppler),'lower') * randn(2,1); 
 	end
 	NormalizeAngle = @(angle)(mod(angle + pi, 2 * pi) + (mod(angle + pi, 2 * pi) < 0) * 2 * pi) - pi;
 	measurement(iMeasEuler) = NormalizeAngle(measurement(iMeasEuler));
