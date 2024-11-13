@@ -1,14 +1,18 @@
 #ifndef INITIAL_USBL
 #define INITIAL_USBL
-
+#define RANSAC
+#include <mode.h>
 #include <vector>
-#include <eigen3/Eigen/Core>
-#include <eigen3/Eigen/Geometry>
 #include <iostream>
-#include <ceres/ceres.h>
 #include <ceres/rotation.h>
 #include <chrono>
 #include <sstream>
+#include <random>
+
+#include <eigen3/Eigen/Core>
+#include <eigen3/Eigen/Geometry>
+#include <ceres/ceres.h>
+
 using namespace std;
 using namespace Eigen;
 struct AngleMeasurement
@@ -27,9 +31,9 @@ struct RecvimMeasurement
     Vector3d velocity;
 };
 
-struct ANGLE_COST
+struct AngleCost
 {
-    ANGLE_COST(const Vector2d &angle, const Vector2d &sigma, const Vector3d &position, const Quaterniond &q) : _angle(angle), _sigma(sigma), _position(position), _q(q) {}
+    AngleCost(const Vector2d &angle, const Vector2d &sigma, const Vector3d &position, const Quaterniond &q) : _angle(angle), _sigma(sigma), _position(position), _q(q) {}
 
     template <typename T>
     bool operator()(
@@ -77,9 +81,9 @@ struct ANGLE_COST
     const Vector3d _position;
     const Quaterniond _q;
 };
-struct RECVIM_COST
+struct RecvimCost
 {
-    RECVIM_COST(const Vector2d &recvim, const Vector2d &sigma, const Vector3d &position, const Quaterniond &q, const Vector3d &velocity) : _recvim(recvim), _sigma(sigma), _position(position), _q(q), _velocity(velocity) {}
+    RecvimCost(const Vector2d &recvim, const Vector2d &sigma, const Vector3d &position, const Quaterniond &q, const Vector3d &velocity) : _recvim(recvim), _sigma(sigma), _position(position), _q(q), _velocity(velocity) {}
 
     template <typename T>
     bool operator()(
@@ -151,16 +155,32 @@ struct RECVIM_COST
     const Quaterniond _q;
     const Vector3d _velocity;
 };
-
+struct PriorCost
+{
+    template <typename T>  bool operator()(
+        const T *const usbl_rpy, const T *const beacon_pos, 
+        T *residual) const
+    {
+        residual[0] = T(usbl_rpy[0]) / 0.002;
+        residual[1] = T(usbl_rpy[1]) / 0.002;
+        residual[2] = T(usbl_rpy[2]) / 0.2;
+        residual[3] = T(beacon_pos[0]) / 100.0;
+        residual[4] = T(beacon_pos[1]) / 100.0;
+        residual[5] = (T(beacon_pos[2]) - 1.2) / 10.0;
+        return true;
+    }
+};
 class InitialUSBL
 {
 public:
     InitialUSBL();
     ~InitialUSBL() = default;
 
-    bool Initialization(vector<AngleMeasurement> &angle_measurements, vector<RecvimMeasurement> &recvim_measurements, Vector3d &beacon_pos, Vector3d &usbl_rpy);
+    bool initialization(vector<AngleMeasurement> &angle_measurements, vector<RecvimMeasurement> &recvim_measurements, Vector3d &beacon_pos, Vector3d &usbl_rpy);
+    bool nls_solver(vector<AngleMeasurement> &angle_measurements, vector<RecvimMeasurement> &recvim_measurements, double* beacon_pos_param, double* usbl_rpy_param);
     void set_threshold(double threshold);
     double get_threshold();
+
 protected:
     double threshold_; 
 };

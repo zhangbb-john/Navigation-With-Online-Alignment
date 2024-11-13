@@ -1,13 +1,12 @@
 #pragma once
-// #define BAG
-#define ENU
-#define DOWN
-#define ROTATE
+
+
 #include <eigen3/Eigen/Dense>
 #include <memory>
 #include <queue>
 
 //#include <au_core/loader_util.h>
+#include <random>
 
 #include <ros/ros.h>
 #include <tf2/LinearMath/Transform.h>
@@ -22,14 +21,40 @@
 #include "auv_nav_msg/USBLANGLES.h"
 #include "auv_nav_msg/RECVIM.h"
 #include "auv_nav_msg/State.h"
-
+#include "cola2_msgs/AHRS.h"
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/Imu.h>
+#include "auv_nav_msg/GPSInfo.h"
+#include "auv_nav_msg/State.h"
 
+#include "cola2_msgs/GPS.h"
 #include <localization.h>
+
+// #define BAG
+#define ENU
+#define DOWN
+#define ROTATE
+#if METHOD == DOA
+#define ADJUST_NOISE
+#endif
+#if EXPERIMENT == FIELD
+#define IMU_MSG AHRS
+#define FAKE_RECVIM
+#define MAG_ATT
+// #define USE_FIXED_ORIGIN
+#endif
+#if SITUATION == INFERENCE
+#define ADD_NOISE 0.0
+#define MISALIGN 0.20943951023931953//0.15707963267948966//0.1047 //0.05235987755982988//0.0//-0.05235987755982988//(-3) //-0.1047 //-0.15707963267948966 //-0.1047//-0.15707963267948966//-0.05235987755982988//(-3)//0.0 // 0.05235987755982988 //3    //0.15707963267948966 //9  //0.1047 //6
+#else
+#define ADD_NOISE 0.0
+#define MISALIGN 0.0
+#endif
+
 #ifdef BAG
 #include <rosgraph_msgs/Clock.h>
 #endif
+
 using MeasurementQueue =
     std::priority_queue<MeasurementPtr, std::vector<MeasurementPtr>,
                         Measurement>;
@@ -57,8 +82,13 @@ class LocalizationRos {
   void update(const ros::TimerEvent& event);
 
   // callback method for receiving IMU messages
+  #if IMU_MSG == AHRS
+  void imuCallback(const cola2_msgs::AHRSConstPtr &msg);
+  #elif IMU_MSG == SENSOR_MSG_IMU
   void imuCallback(const sensor_msgs::ImuConstPtr& msg);
-
+  #else
+  void imuCallback(const sensor_msgs::ImuConstPtr& msg);
+  #endif
   // callback method for receiving DVL messages
   void dvlCallback(const auv_nav_msg::DVLConstPtr& msg);
 
@@ -68,6 +98,8 @@ class LocalizationRos {
   void usbllongCallback(const auv_nav_msg::USBLLONGConstPtr& msg);
   void usblanglesCallback(const auv_nav_msg::USBLANGLESConstPtr& msg);
   void usblrecvimCallback(const auv_nav_msg::RECVIMConstPtr& msg);
+  void gpsCallback(const cola2_msgs::GPS msg);
+
 #ifdef BAG
   void clockCallback(const rosgraph_msgs::ClockConstPtr& msg);
 #endif
@@ -121,6 +153,8 @@ class LocalizationRos {
 
   ros::Publisher odomPub_;
   ros::Publisher statePub_;
+  ros::Publisher gpsInfoPub_;
+
   ros::Timer updateTimer_;
   // subscribers for sensors
   ros::Subscriber imuSub_;
@@ -129,6 +163,7 @@ class LocalizationRos {
   ros::Subscriber usbllongSub_;
   ros::Subscriber usblanglesSub_;
   ros::Subscriber recvimSub_;
+  ros::Subscriber gpsSub_;
 #ifdef BAG
   ros::Subscriber clockSub_;
   double time_record;
@@ -151,4 +186,32 @@ class LocalizationRos {
   double diverge_start = 0;
   bool Diverge = false;
   bool ERR = false;
+
+  // GPS
+  bool is_gps_init = false;
+  // double GPS_start_x = 0;
+  // double GPS_start_y = 0;
+  double gps_start_lat = 0;
+  double gps_start_lon = 0;
+  double last_GPS_time = 0;
+  // double roll, pitch, yaw;
+  double position_uncertainty = 1.0e6;
+  double distance = 0, t_start = 0;
+  Eigen::Vector3d last_pos;
+  Eigen::Vector3d beaconPos;
+  auv_nav_msg::State state_topic;
+
+  int accept_num = 0, reject_num = 0;
+  //Fixed Origin 
+  double fixed_lat = 30.108557887083336; //18.318901930804600; //30.10929164584 
+  double fixed_lon =  1.219918879456944e+02;//1.091455029943104e+02; //121.991848022267;
+  double odom_vs_state_x = 0, odom_vs_state_y = 0;
+  // IMU
+  int imu_count = 0, ins_count = 0;
+  double ins_coord_lat = 0, ins_coord_lon = 0, ins_start_x = 0, ins_start_y = 0;    //ins coordinate in radian
+  bool is_ins_init = false;
+
+  // USBL
+  bool is_usbl_init = false;
+  double min_bearing = 10, max_bearing = -10;
 };

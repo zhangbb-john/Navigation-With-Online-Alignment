@@ -138,6 +138,8 @@ struct MeasurementModel {
       const Eigen::Matrix<double, M, N * 2 + 1>& sigmaPoints,
       const Eigen::Matrix<double, N * 2 + 1, 1>& weight)>
       meanFn = {};
+
+  std::string model_name;    
 };
 
 /*

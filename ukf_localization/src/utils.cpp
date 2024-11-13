@@ -1,6 +1,6 @@
 #include <utils.h>
 
-double startSec ;
+double start_time ;
 int count_no_sensor;
 //files 
 std::ofstream timefile; 
@@ -12,8 +12,9 @@ std::ofstream velocity;
 std::ofstream statefile;
 std::ofstream dvlfile;
 std::ofstream rotfile;
+std::ofstream beaconfile;
 
-double NormalizeAngle(double angle) {
+double normalizeAngle(double angle) {
     double a = fmod(angle + M_PI, 2.0 * M_PI);
     if (a < 0.0) 
     {
@@ -21,7 +22,7 @@ double NormalizeAngle(double angle) {
     }
     return a - M_PI;
 }
-void File_init(std::string dir)
+void fileInit(std::string dir)
 {
     std::cout<<"dir is "<<dir<<std::endl;
     std::string log_dir = dir+"/log";
@@ -58,6 +59,9 @@ void File_init(std::string dir)
     rotfile.open(rot_str.c_str(), std::ios::out);
 
     std::string time_str = log_dir + "/time.txt";
+
+    std::string beacon_file_str = log_dir + "/beacon.txt";
+    beaconfile.open(beacon_file_str.c_str(), std::ios::out);
     // timefile.open(time_str.c_str(), std::ios::out);
 
 }

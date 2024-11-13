@@ -1,0 +1,8 @@
+Header header
+geometry_msgs/Vector3 current_position
+geometry_msgs/Vector3 next_position
+geometry_msgs/Vector3 current_rpy
+geometry_msgs/Vector3 next_rpy
+string deploy_state
+string fsm_state
+

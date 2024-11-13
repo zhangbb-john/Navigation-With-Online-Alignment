@@ -1,6 +1,8 @@
 #pragma once
 #include <ukf_helpers.h>
 #include <utils.h>
+#include <mode.h>
+
 /*
  * UKF implementation based on paper
  * https://www.seas.harvard.edu/courses/cs281/papers/unscented.pdf
@@ -20,7 +22,7 @@ public:
    */
   Ukf(double alpha, double beta, double kappa,
       std::function<Eigen::Matrix<double, N, 1>(
-          const Eigen::Matrix<double, N, 1> &state, double deltaT, bool output)> //output is defined by john
+          const Eigen::Matrix<double, N, 1> &state, double deltaT, bool output)> // output is defined by john
           F)
       : pointsFn_(alpha, beta, kappa), stateTransitionFunction_(F)
   {
@@ -113,7 +115,7 @@ public:
       P_xz.noalias() += pointsFn_.getWc()(i) * xDiff * zDiff.transpose();
       // logfile<<"xDiff:"<<xDiff<<std::endl<<"zDiff:"<<zDiff<<std::endl;
     }
-    Eigen::Matrix<double, M, 1> prediction_error; //John
+    Eigen::Matrix<double, M, 1> prediction_error; // John
     if (model.diffFn)
     {
       prediction_error = model.diffFn(measurement, predictedMeasurement);
@@ -122,8 +124,22 @@ public:
     {
       prediction_error = measurement - predictedMeasurement;
     }
+
     // prediction_error = measurement - predictedMeasurement;
-  
+    #if FILTER == ROBUST_UKF
+    for (int i = 0; i < M; i++)
+    {
+      logfile << "prediction_error(" << i << ") is " << prediction_error(i) << std::endl;
+      logfile << "sqrt of P_zz(" << i << ", " << i << ") is " << sqrt(P_zz(i, i)) << std::endl;
+      if (prediction_error(i) * prediction_error(i) > P_zz(i, i) * 16)
+      {
+        logfile << "model_name " << model.model_name << " fail" << std::endl;
+        return;
+      }
+    }
+    logfile << "model_name " << model.model_name << " succeed" << std::endl;
+
+    #endif
     // 4. calculate Kalman gain
     Eigen::Matrix<double, N, M> K = P_xz * P_zz.inverse();
     // logfile<<std::fixed<<std::setprecision(4)<<"P_xz:"<<std::endl<<P_xz<<std::endl<<std::endl<<"P_zz"<<

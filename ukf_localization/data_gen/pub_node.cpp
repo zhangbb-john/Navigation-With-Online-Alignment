@@ -1,4 +1,4 @@
-
+#include <mode.h>
 #include <sys/time.h>
 #include <iostream>
 #include <fstream>
@@ -14,7 +14,7 @@
 #include <auv_nav_msg/DVL.h>
 #include <sensor_msgs/Imu.h>
 #include <data_gen/motion.h>
-#include <random>
+
 #include "auv_nav_msg/USBLANGLES.h"
 #include "auv_nav_msg/RECVIM.h"
 #include <eigen3/Eigen/Core>
@@ -24,8 +24,15 @@
 #include <tf2/transform_datatypes.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
+// noise
+#include <random>
+#include <gsl/gsl_rng.h>
+#include <gsl/gsl_randist.h>
+
+
 #define R
 #define ENU
+
 Eigen::Vector3d imu_gyro_bias;
 Eigen::Vector3d imu_acc_bias;
 std::ofstream log_file;
@@ -190,11 +197,24 @@ AngleData angle_gen(MotionData motion, double t, Eigen::Vector3d usbl_rpy, Eigen
 
 void addANGLEnoise(AngleData &data, double angle_noise_sigma)
 {
+#if NOISE_MODE == T_DISTR
+    std::cout << "generate t distributed noise " << std::endl;
+    gsl_rng* rng = gsl_rng_alloc(gsl_rng_default);
+    gsl_rng_set(rng, time(NULL));
+    data.bearing = data.bearing + gsl_ran_tdist(rng, 2) * angle_noise_sigma;
+    data.elevation = data.elevation + gsl_ran_tdist(rng, 2) * angle_noise_sigma;
+    log_file << gsl_ran_tdist(rng, 2) * angle_noise_sigma << std::endl;
+
+#else 
+    std::cout << "generate gaussian distributed noise " << std::endl;
     std::random_device rd;
     std::default_random_engine generator_(rd());
     std::normal_distribution<double> noise(0.0, 1.0);
     data.bearing = data.bearing + angle_noise_sigma * noise(generator_);
-    data.elevation = data.elevation + angle_noise_sigma * noise(generator_);
+    data.elevation = data.elevation + angle_noise_sigma * noise(generator_);    
+    // log_file << "gaussian noise" << std::endl;
+    log_file << angle_noise_sigma * noise(generator_) << std::endl;
+#endif
 }
 
 RecvimData recvim_gen(MotionData motion, double t, Eigen::Vector3d beacon_pos)
@@ -215,8 +235,17 @@ void addRECVIMnoise(RecvimData &data, double recvim_noise_sigma, double beacon_d
     std::random_device rd;
     std::default_random_engine generator_(rd());
     std::normal_distribution<double> noise(0.0, 1.0);
-    data.speed = data.speed + recvim_noise_sigma * noise(generator_);
     data.depth = data.depth + beacon_depth_noise_sigma * noise(generator_);
+
+#if NOISE_MODE == T_DISTR
+    std::cout << "generate t distributed noise " << std::endl;
+    gsl_rng* rng = gsl_rng_alloc(gsl_rng_default);
+    gsl_rng_set(rng, time(NULL));
+    data.speed = data.speed + recvim_noise_sigma * gsl_ran_tdist(rng, 2);
+#else
+    std::cout << "generate gaussian distributed noise " << std::endl;
+    data.speed = data.speed + recvim_noise_sigma * noise(generator_);
+#endif
 }
 nav_msgs::Odometry odom_gen(MotionData motion, double t)
 {
@@ -410,7 +439,7 @@ int main(int argc, char **argv)
     std::string log_str = log_dir + "/log.txt";
 
     log_file.open(log_str.c_str(), std::ios::out);
-    double startSec = 0;
+    double start_time = 0;
     bool started = false;
     imu_acc_bias = Eigen::Vector3d::Zero();
     imu_gyro_bias = Eigen::Vector3d::Zero();
@@ -422,13 +451,13 @@ int main(int argc, char **argv)
         {
             if (started == false)
             {
-                startSec = ros::Time::now().toSec();
+                start_time = ros::Time::now().toSec();
                 started = true;
             }
             if (started == true)
             {   
                 double nowSec = ros::Time::now().toSec();
-                sec = nowSec- startSec;
+                sec = nowSec- start_time;
                 imu.header.stamp = ros::Time::now();
                 motion = motionGen.MotionModel(sec);
                 ImuData data = imu_gen(motion, sec);
@@ -494,13 +523,13 @@ int main(int argc, char **argv)
         {
             if (started == false)
             {
-                startSec = ros::Time::now().toSec();
+                start_time = ros::Time::now().toSec();
                 started = true;
             }
             if (started == true)
             {
                 double nowSec = ros::Time::now().toSec();
-                sec = nowSec- startSec;
+                sec = nowSec- start_time;
                 if (params.failure.Failure && sec > params.failure.failure_t_start && sec < params.failure.failure_t_end)
                     std::cout << "DVL fails now" << std::endl;
                 else
@@ -556,13 +585,13 @@ int main(int argc, char **argv)
         {
             if (started == false)
             {
-                startSec = ros::Time::now().toSec();
+                start_time = ros::Time::now().toSec();
                 started = true;
             }
             if (started == true)
             {
                 double nowSec = ros::Time::now().toSec();
-                sec = nowSec- startSec;
+                sec = nowSec- start_time;
                 motion = motionGen.MotionModel(sec);
 
                 DepthData data = depth_gen(motion, sec);
@@ -600,13 +629,13 @@ int main(int argc, char **argv)
         {
             if (started == false)
             {
-                startSec = ros::Time::now().toSec();
+                start_time = ros::Time::now().toSec();
                 started = true;
             }
             if (started == true)
             {
                 double nowSec = ros::Time::now().toSec();
-                sec = nowSec- startSec;                
+                sec = nowSec- start_time;                
                 motion = motionGen.MotionModel(sec);
 
                 AngleData data = angle_gen(motion, sec, params.usbl_rpy, params.beacon_pos);
@@ -640,13 +669,13 @@ int main(int argc, char **argv)
         {
             if (started == false)
             {
-                startSec = ros::Time::now().toSec();
+                start_time = ros::Time::now().toSec();
                 started = true;
             }
             if (started == true)
             {
                 double nowSec = ros::Time::now().toSec();
-                sec = nowSec- startSec;                
+                sec = nowSec- start_time;                
                 motion = motionGen.MotionModel(sec);
 
                 RecvimData data = recvim_gen(motion, sec, params.beacon_pos);

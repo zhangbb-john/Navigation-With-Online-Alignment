@@ -20,9 +20,9 @@ find_package(catkin REQUIRED COMPONENTS
   visualization_msgs
   auv_nav_msg
   rosgraph_msgs
-  serial
 )
 find_package(  Ceres REQUIRED)
+find_package(  GSL REQUIRED)
 
 
 
@@ -35,6 +35,7 @@ include_directories(
     ${catkin_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIRS}
     ${CERES_INCLUDE_DIRS} 
+    ${GSL_INCLUDE_DIRS}
 )
 ##localization
 add_executable(localization_node
@@ -62,6 +63,7 @@ add_executable(pub_node
 target_link_libraries(pub_node
     motion
     ${catkin_LIBRARIES}
+    ${GSL_LIBRARIES}
 )
 # traj_pub
 add_executable(traj_pub_node

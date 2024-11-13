@@ -66,7 +66,6 @@
   <build_depend>turtlesim</build_depend>
   <build_depend>auv_nav_msg</build_depend>
   <build_depend>rosgraph_msgs</build_depend>
-  <build_depend>serial</build_depend>
   <build_depend>tf</build_depend>
 
 
@@ -77,7 +76,6 @@
   <build_export_depend>turtlesim</build_export_depend>
   <build_export_depend>auv_nav_msg</build_export_depend>
   <build_export_depend>rosgraph_msgs</build_export_depend>
-  <build_export_depend>serial</build_export_depend>
   <build_export_depend>tf</build_export_depend>
 
   <exec_depend>geometry_msgs</exec_depend>
@@ -94,7 +92,6 @@
   <exec_depend>tf2_ros</exec_depend>
   <exec_depend>auv_nav_msg</exec_depend>
   <exec_depend>rosgraph_msgs</exec_depend>
-  <exec_depend>serial</exec_depend>
   <exec_depend>tf</exec_depend>
   <exec_depend>gps_common</exec_depend>
 

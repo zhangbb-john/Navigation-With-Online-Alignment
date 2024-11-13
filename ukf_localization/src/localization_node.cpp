@@ -10,21 +10,21 @@ int main(int argc, char **argv)
   ros::NodeHandle privateNh("~");
 
 #ifdef BAG
-  startSec = 1632712539.36;
+  start_time = 1632712539.36;
 #else
 
-  startSec = ros::Time::now().toSec();
-  while (startSec < 1.0e9)
+  start_time = ros::Time::now().toSec();
+  while (start_time < 1.0e9)
   {
-    startSec = ros::Time::now().toSec();
+    start_time = ros::Time::now().toSec();
     sleep(1);
   }
-  std::cout << "startSec is " << startSec << std::endl;
+  std::cout << "start_time is " << start_time << std::endl;
 
 #endif
   std::string dir;
   ros::param::get("dir", dir);
-  File_init(dir);
+  fileInit(dir);
   LocalizationRos localizationNode(nh, privateNh);
   ros::spin();
   return 0;

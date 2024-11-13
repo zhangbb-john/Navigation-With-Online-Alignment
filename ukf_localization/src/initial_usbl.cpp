@@ -4,7 +4,7 @@ InitialUSBL::InitialUSBL()
 {
     std::cout << "class :"<< threshold_ << std::endl;
 }
-bool InitialUSBL::Initialization(vector<AngleMeasurement> &angle_measurements, vector<RecvimMeasurement> &recvim_measurements, Vector3d &beacon_pos, Vector3d &usbl_rpy)
+bool InitialUSBL::initialization(vector<AngleMeasurement> &angle_measurements, vector<RecvimMeasurement> &recvim_measurements, Vector3d &beacon_pos, Vector3d &usbl_rpy)
 {
     // std::cout << "in Initialization threshold is " << threshold_ << std::endl;
 
@@ -17,7 +17,135 @@ bool InitialUSBL::Initialization(vector<AngleMeasurement> &angle_measurements, v
 
     double beacon_pos_param[3] = {0, 0, 0}; // abc参数的估计值
     double usbl_rpy_param[3] = {0, 0, 0};
+    #ifdef RANSAC 
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    int num_iterations = 20;
+    int best_inliers = 0;
+    set<int> best_angle_set, best_recvim_set;
+    std::vector<int> confirmed_inliers;
+    for (int ri = 0; ri < num_iterations; ++ri)
+    {
+        chrono::steady_clock::time_point t_start = chrono::steady_clock::now();
+
+        int angle_inliers = 0, recvim_inliers = 0;
+        std::vector<int> num_angle, num_recvim;
+        for (int i = 0; i < angle_measurements.size(); ++i)
+        {
+            num_angle.push_back(i);
+        }
+        for (int i = 0; i < recvim_measurements.size(); ++i)
+        {
+            num_recvim.push_back(i);
+        }
+        std::shuffle(num_angle.begin(), num_angle.end(), gen);
+        std::shuffle(num_recvim.begin(), num_recvim.end(), gen);
+        vector<AngleMeasurement> rand_angle_measurements;
+        vector<RecvimMeasurement> rand_recvim_measurements;
+        for (int i = 0; i < 5; ++i)
+        {
+            rand_angle_measurements.push_back(angle_measurements[num_angle[i]]);
+            rand_recvim_measurements.push_back(recvim_measurements[num_recvim[i]]);
+        }
+        double init_beacon_pos[3] = {0, 0, 0}; // abc参数的估计值
+        double init_usbl_rpy[3] = {0, 0, 0};
+        set<int> angle_set, recvim_set;
+        if (!nls_solver(rand_angle_measurements, rand_recvim_measurements, init_beacon_pos, init_usbl_rpy))
+        {
+            cout << "No. " << ri << " failed " << best_inliers << endl;
+            continue;
+        }
+        else
+        {
+            for (int i = 0; i < angle_measurements.size(); ++i)
+            {
+                Vector2d angle = angle_measurements[i].angle;
+                Vector2d sigma = angle_measurements[i].sigma;
+                Vector3d position = angle_measurements[i].position;
+                Quaterniond q = angle_measurements[i].q;
+                AngleCost anlge_cost(angle, sigma, position, q);
+                double angle_residual[2];
+                anlge_cost(init_beacon_pos, init_usbl_rpy, angle_residual);
+                if (abs(angle_residual[0]) < 3.0 && abs(angle_residual[1]) < 3.0)
+                {
+                    angle_inliers++;
+                    angle_set.insert(i);
+                }
+            }
+            for (int i = 0; i < recvim_measurements.size(); ++i)
+            {            
+                Vector2d recvim = recvim_measurements[i].recvim;
+                Vector2d sigma = recvim_measurements[i].sigma;
+                Vector3d position = recvim_measurements[i].position;
+                Quaterniond q = recvim_measurements[i].q;
+                Vector3d velocity = recvim_measurements[i].velocity;
+                RecvimCost recvim_cost(recvim, sigma, position, q, velocity);
+                double recvim_residual[1];
+                recvim_cost(init_beacon_pos, recvim_residual);
+                if (abs(recvim_residual[0]) < 3.0)
+                {
+                    recvim_inliers++;
+                    recvim_set.insert(i);
+                }                              
+            }
+            if (angle_inliers + recvim_inliers > best_inliers)   
+            {
+                best_inliers = angle_inliers + recvim_inliers ;
+                for (const auto& elem : angle_set)
+                {
+                    best_angle_set.insert(elem);
+                }
+                for (const auto& elem : recvim_set)
+                {
+                    best_recvim_set.insert(elem);
+                }
+            } 
+        }
+        chrono::steady_clock::time_point t_end = chrono::steady_clock::now();
+        chrono::duration<double> time_elapsed = chrono::duration_cast<chrono::duration<double>>(t_end - t_start);
+        cout << "No. " << ri << " iteration: the number of the angle inliers is " << angle_inliers << "; the number of the recvim inliers is " << recvim_inliers  << "; best number of the inliers is " << best_inliers << endl;
+        cout << "time elapsed is " << time_elapsed.count() << " seconds. " << endl;
+    }
     ceres::Problem problem;
+    problem.AddResidualBlock( // 向问题中添加误差项
+                                // 使用自动求导，模板参数：误差类型，输出维度，输入维度，维数要与前面struct中一致
+        new ceres::AutoDiffCostFunction<PriorCost, 6, 3, 3>(
+            new PriorCost()),
+        nullptr,          // 核函数，这里不使用，为空
+        usbl_rpy_param,
+        beacon_pos_param);    
+    for (const auto& elem : best_angle_set)
+    {
+        Vector2d angle = angle_measurements[elem].angle;
+        Vector2d sigma = angle_measurements[elem].sigma;
+        Vector3d position = angle_measurements[elem].position;
+        Quaterniond q = angle_measurements[elem].q;
+        problem.AddResidualBlock( // 向问题中添加误差项
+                                  // 使用自动求导，模板参数：误差类型，输出维度，输入维度，维数要与前面struct中一致
+            new ceres::AutoDiffCostFunction<AngleCost, 2, 3, 3>(
+                new AngleCost(angle, sigma, position, q)),
+            nullptr,          // 核函数，这里不使用，为空
+            beacon_pos_param, // 待估计参数
+            usbl_rpy_param);
+    }
+    for (const auto& elem : best_recvim_set)
+    {
+        Vector2d recvim = recvim_measurements[elem].recvim;
+        Vector2d sigma = recvim_measurements[elem].sigma;
+        Vector3d position = recvim_measurements[elem].position;
+        Quaterniond q = recvim_measurements[elem].q;
+        Vector3d velocity = recvim_measurements[elem].velocity;
+        problem.AddResidualBlock( // 向问题中添加误差项
+                                  // 使用自动求导，模板参数：误差类型，输出维度，输入维度，维数要与前面struct中一致
+            new ceres::AutoDiffCostFunction<RecvimCost, 2, 3>(
+                new RecvimCost(recvim, sigma, position, q, velocity)),
+            nullptr,          // 核函数，这里不使用，为空
+            beacon_pos_param // 待估计参数
+            );        
+    }
+    #else
+    ceres::Problem problem;
+
     for (size_t i = 0; i < angle_measurements.size(); i++)
     {
         Vector2d angle = angle_measurements[i].angle;
@@ -26,8 +154,8 @@ bool InitialUSBL::Initialization(vector<AngleMeasurement> &angle_measurements, v
         Quaterniond q = angle_measurements[i].q;
         problem.AddResidualBlock( // 向问题中添加误差项
                                   // 使用自动求导，模板参数：误差类型，输出维度，输入维度，维数要与前面struct中一致
-            new ceres::AutoDiffCostFunction<ANGLE_COST, 2, 3, 3>(
-                new ANGLE_COST(angle, sigma, position, q)),
+            new ceres::AutoDiffCostFunction<AngleCost, 2, 3, 3>(
+                new AngleCost(angle, sigma, position, q)),
             nullptr,          // 核函数，这里不使用，为空
             beacon_pos_param, // 待估计参数
             usbl_rpy_param);
@@ -41,12 +169,13 @@ bool InitialUSBL::Initialization(vector<AngleMeasurement> &angle_measurements, v
         Vector3d velocity = recvim_measurements[i].velocity;
         problem.AddResidualBlock( // 向问题中添加误差项
                                   // 使用自动求导，模板参数：误差类型，输出维度，输入维度，维数要与前面struct中一致
-            new ceres::AutoDiffCostFunction<RECVIM_COST, 2, 3>(
-                new RECVIM_COST(recvim, sigma, position, q, velocity)),
+            new ceres::AutoDiffCostFunction<RecvimCost, 2, 3>(
+                new RecvimCost(recvim, sigma, position, q, velocity)),
             nullptr,          // 核函数，这里不使用，为空
             beacon_pos_param // 待估计参数
             );        
     }
+    #endif
     // 配置求解器
     ceres::Solver::Options options;               // 这里有很多配置项可以填
     options.linear_solver_type = ceres::DENSE_QR; // 增量方程如何求解
@@ -119,8 +248,7 @@ bool InitialUSBL::Initialization(vector<AngleMeasurement> &angle_measurements, v
     covariance.GetCovarianceBlock(beacon_pos_param, usbl_rpy_param, cov_bu);
     cout << "cov_bb is " << cov_bb[0] << ", " << cov_bb[4] << ", " << cov_bb[8] << endl;
     cout << "cov_uu is " << cov_uu[0] << ", " << cov_uu[4] << ", " << cov_uu[8] << endl;
-    
-    
+
     chrono::steady_clock::time_point t2 = chrono::steady_clock::now();
     chrono::duration<double> time_used = chrono::duration_cast<chrono::duration<double>>(t2 - t1);
     cout << "solve time cost = " << time_used.count() << " seconds. " << endl; 
@@ -130,10 +258,73 @@ bool InitialUSBL::Initialization(vector<AngleMeasurement> &angle_measurements, v
     cout << "estimated beacon_pos = " << beacon_pos << endl;
 
     usbl_rpy << usbl_rpy_param[0], usbl_rpy_param[1], usbl_rpy_param[2];
-    cout << "estimated usbl_rpy is " << usbl_rpy << endl;
+
+    cout << "estimated usbl_rpy is " << usbl_rpy << std::endl;
+    cout << "error is " << sqrt((usbl_rpy_param[0] - 0.0524) * (usbl_rpy_param[0] - 0.0524) + (usbl_rpy_param[1] - 0.0873) * (usbl_rpy_param[1] - 0.0873) + (usbl_rpy_param[2] - 0.1396) * (usbl_rpy_param[2] - 0.1396))<< endl;
+
     return true;
 }
+bool InitialUSBL::nls_solver(vector<AngleMeasurement> &angle_measurements, vector<RecvimMeasurement> &recvim_measurements, double* beacon_pos_param, double* usbl_rpy_param)
+{
+    ceres::Problem problem;
+    cout << "angle_measurements.size() is " << angle_measurements.size() << "; recvim_measurements.size() is " << recvim_measurements.size() << std::endl;
+    problem.AddResidualBlock( // 向问题中添加误差项
+                                // 使用自动求导，模板参数：误差类型，输出维度，输入维度，维数要与前面struct中一致
+        new ceres::AutoDiffCostFunction<PriorCost, 6, 3, 3>(
+            new PriorCost()),
+        nullptr,          // 核函数，这里不使用，为空
+        usbl_rpy_param,
+        beacon_pos_param);    
+    for (size_t i = 0; i < angle_measurements.size(); i++)
+    {
+        Vector2d angle = angle_measurements[i].angle;
+        Vector2d sigma = angle_measurements[i].sigma;
+        Vector3d position = angle_measurements[i].position;
+        Quaterniond q = angle_measurements[i].q;
+        problem.AddResidualBlock( // 向问题中添加误差项
+                                  // 使用自动求导，模板参数：误差类型，输出维度，输入维度，维数要与前面struct中一致
+            new ceres::AutoDiffCostFunction<AngleCost, 2, 3, 3>(
+                new AngleCost(angle, sigma, position, q)),
+            nullptr,          // 核函数，这里不使用，为空
+            beacon_pos_param, // 待估计参数
+            usbl_rpy_param);
+    }
+    for (size_t i = 0; i < recvim_measurements.size(); i ++)
+    {
+        Vector2d recvim = recvim_measurements[i].recvim;
+        Vector2d sigma = recvim_measurements[i].sigma;
+        Vector3d position = recvim_measurements[i].position;
+        Quaterniond q = recvim_measurements[i].q;
+        Vector3d velocity = recvim_measurements[i].velocity;
+        problem.AddResidualBlock( // 向问题中添加误差项
+                                  // 使用自动求导，模板参数：误差类型，输出维度，输入维度，维数要与前面struct中一致
+            new ceres::AutoDiffCostFunction<RecvimCost, 2, 3>(
+                new RecvimCost(recvim, sigma, position, q, velocity)),
+            nullptr,          // 核函数，这里不使用，为空
+            beacon_pos_param // 待估计参数
+            );        
+    }
+    // 配置求解器
+    ceres::Solver::Options options;               // 这里有很多配置项可以填
+    options.linear_solver_type = ceres::DENSE_QR; // 增量方程如何求解
+    options.minimizer_progress_to_stdout = true;  // 输出到cout
 
+    ceres::Solver::Summary summary; // 优化信息
+    chrono::steady_clock::time_point t1 = chrono::steady_clock::now();
+    ceres::Solve(options, &problem, &summary); // 开始优化
+    cout << summary.BriefReport() << endl;
+
+	if (summary.termination_type == ceres::CONVERGENCE && abs(usbl_rpy_param[0]) + abs(usbl_rpy_param[1]) + abs(usbl_rpy_param[2]) < 1)
+	{
+        cout << "estimated usbl_rpy is " << usbl_rpy_param[0] << " " << usbl_rpy_param[1] << " " << usbl_rpy_param[2] << endl;
+        return true;
+	}
+    else 
+    {
+        cout << "abs(usbl_rpy_param[0]) + abs(usbl_rpy_param[1]) + abs(usbl_rpy_param[2]) is " << abs(usbl_rpy_param[0]) + abs(usbl_rpy_param[1]) + abs(usbl_rpy_param[2]) << endl;
+        return false;
+    }
+}
 void InitialUSBL::set_threshold(double threshold)
 {
     threshold_ = threshold;

@@ -48,6 +48,8 @@ const int DVL_SIZE = 3;
 const int RECVIM_SIZE = 2;
 const int ANGLE_SIZE = 2;
 const int USBL_INITIAL_SIZE = 6;
+const int XY_SIZE = 2;
+
 // types of measurements
 enum MeasurementType {
   MeasurementTypeNone = 0,
@@ -55,7 +57,8 @@ enum MeasurementType {
   MeasurementTypeDvl,
   MeasurementTypeImu,
   MeasurementTypeRecvim,
-  MeasurementTypeAngle
+  MeasurementTypeAngle,
+  MeasurementTypeXY,
 };
 
 /*

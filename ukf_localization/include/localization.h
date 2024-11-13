@@ -1,6 +1,7 @@
 #pragma once
 #ifndef LOCALIZATION_H
 #define LOCALIZATION_H
+// #define BEACON_KNOWN
 
 #ifndef ENU_ACC
 // #define ENU_ACC
@@ -60,6 +61,7 @@ public:
    * @param Q: noise covariance
    */
     void setProcessNoise(const Eigen::Matrix<double, STATE_SIZE, STATE_SIZE> &Q);
+    void changeProcessNoise(const Eigen::Matrix<double, STATE_SIZE, STATE_SIZE> &Q);
 
     void setParam(bool INITIALIZATION_NLS, double threshold);
     /*
@@ -138,6 +140,8 @@ protected:
     MeasurementModel<ANGLE_SIZE, STATE_SIZE> angleModel_;
     MeasurementModel<RECVIM_SIZE, STATE_SIZE> recvimModel_;
     MeasurementModel<USBL_INITIAL_SIZE, STATE_SIZE> usblInitialModel_;
+    MeasurementModel<XY_SIZE, STATE_SIZE> xyModel_;
+
     std::vector<AngleMeasurement> angle_measurements;
     std::vector<RecvimMeasurement> recvim_measurements;
     InitialUSBL initial_usbl;

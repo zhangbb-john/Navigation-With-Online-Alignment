@@ -89,7 +89,7 @@ void Localization::processMeasurement(Measurement measurement)
     logfile << "predict state:" << std::endl
             << filter_.getState() << std::endl
             << std::endl;
-    logfile <<std::fixed<<std::setprecision(2) << "measurement time:" << measurement.time - startSec << std::endl;
+    logfile <<std::fixed<<std::setprecision(2) << "measurement time:" << measurement.time - start_time << std::endl;
 
     //measurefile<<"isInitialized_:now start process measurement"<<std::endl;
     if (measurement.type == MeasurementTypeDepth)
@@ -153,14 +153,14 @@ void Localization::processMeasurement(Measurement measurement)
         angle_measurements.push_back(angle_measurement);
         logfile << "push back angle measurement" << std::endl;
 
-        isUSBLInitialized_ = initial_usbl.Initialization(angle_measurements, recvim_measurements, beacon_pos, usbl_rpy);
+        isUSBLInitialized_ = initial_usbl.initialization(angle_measurements, recvim_measurements, beacon_pos, usbl_rpy);
         if (isUSBLInitialized_)
         {
           std::cout << "beacon_pos: " << beacon_pos << std::endl << "usbl_rpy:" << usbl_rpy << std::endl;
           Eigen::Matrix<double, USBL_INITIAL_SIZE, 1> initial_state;
           initial_state << beacon_pos[0], beacon_pos[1], beacon_pos[2], usbl_rpy[0], usbl_rpy[1], usbl_rpy[2];
-          Eigen::Matrix<double, USBL_INITIAL_SIZE, USBL_INITIAL_SIZE> InitialCovariance;
-          InitialCovariance <<  1.0e-3, 0,      0,      0,      0,      0,
+          Eigen::Matrix<double, USBL_INITIAL_SIZE, USBL_INITIAL_SIZE> initial_covariance;
+          initial_covariance << 1.0e-3, 0,      0,      0,      0,      0,
                                 0,      1.0e-3, 0,      0,      0,      0,
                                 0,      0,      1.0e-3, 0,      0,      0,
                                 0,      0,      0,      1.0e-4, 0,      0,
@@ -168,7 +168,7 @@ void Localization::processMeasurement(Measurement measurement)
                                 0,      0,      0,      0,      0,      1.0e-4;
                                                                                            
 
-          filter_.update(initial_state, InitialCovariance, usblInitialModel_);
+          filter_.update(initial_state, initial_covariance, usblInitialModel_);
         }
       }
     }
@@ -201,7 +201,7 @@ void Localization::processMeasurement(Measurement measurement)
         recvim_measurement.velocity << x(StateVx), x(StateVy), x(StateVz);
         recvim_measurements.push_back(recvim_measurement);
 
-        isUSBLInitialized_ = initial_usbl.Initialization(angle_measurements, recvim_measurements, beacon_pos, usbl_rpy);
+        isUSBLInitialized_ = initial_usbl.initialization(angle_measurements, recvim_measurements, beacon_pos, usbl_rpy);
         if (isUSBLInitialized_)
         {
           std::cout << "beacon_pos: " << beacon_pos << std::endl << "usbl_rpy:" << usbl_rpy << std::endl;
@@ -219,12 +219,17 @@ void Localization::processMeasurement(Measurement measurement)
         }
       }
     }
-
+    else if (measurement.type == MeasurementTypeXY)
+    {
+      Eigen::Matrix<double, XY_SIZE, 1> z = measurement.measurement;
+      Eigen::Matrix<double, XY_SIZE, XY_SIZE> R = measurement.covariance;
+      filter_.update(z, R, xyModel_);
+    }
     logfile << "update state:" << std::endl
             << filter_.getState() << std::endl
             << std::endl;
 
-    //measurefile<<measurement.time-startSec<<std::endl;
+    //measurefile<<measurement.time-start_time<<std::endl;
   }
   else if (measurement.type == MeasurementTypeImu)
   {
@@ -238,6 +243,9 @@ void Localization::processMeasurement(Measurement measurement)
     // copy angular velocity
 
     x.segment<3>(StateVroll) = measurement.measurement.segment<3>(ImuVroll);
+#if METHOD == DOA_BEACON_KNOWN
+    x.segment<3>(StateBeaconX) = Eigen::Vector3d(-50.0, 20.0, 10.0);
+#endif
     P.block<3, 3>(StateVroll, StateVroll) =
         measurement.covariance.block<3, 3>(ImuVroll, ImuVroll);
     // copy acceleration
@@ -328,7 +336,7 @@ void Localization::processMeasurement(Measurement measurement)
 //     }
 //     logfile<<"update state:"<<std::endl<<filter_.getState()<<std::endl<<std::endl;
 
-//     measurefile<<measurement.time-startSec<<std::endl;
+//     measurefile<<measurement.time-start_time<<std::endl;
 //   }
 //   else {
 //     x.setZero();
@@ -422,7 +430,7 @@ Eigen::Matrix<double, STATE_SIZE, 1> Localization::stateTransitionFunction(
   if (output)
   {
     velocity << std::fixed << std::setprecision(3) << "last time:" << std::endl
-             << Localization::getLastMeasurementTime() - startSec << std::endl;
+             << Localization::getLastMeasurementTime() - start_time << std::endl;
     velocity << "deltaT = " << deltaT << std::endl
              << "x=" << std::endl
              << x << std::endl
@@ -448,10 +456,10 @@ void Localization::setupProcessModel()
         // wrap rpy
         // logfile<<"a is " << a(StateRoll)<<" "<<a(StatePitch)<<" "<<a(StateYaw)<< std::endl<<"b is "<<b(StateRoll)<<" "<<b(StatePitch)<<" "<<b(StateYaw)<<std::endl<<" (diff(StateRoll)):"<<diff(StateRoll) <<std::endl;
 
-        diff(StateRoll) = NormalizeAngle(diff(StateRoll));
-        diff(StatePitch) = NormalizeAngle(diff(StatePitch));
-        diff(StateYaw) = NormalizeAngle(diff(StateYaw));
-        // logfile<<" NormalizeAngle(diff(StateRoll)):"<<diff(StateRoll) <<std::endl;
+        diff(StateRoll) = normalizeAngle(diff(StateRoll));
+        diff(StatePitch) = normalizeAngle(diff(StatePitch));
+        diff(StateYaw) = normalizeAngle(diff(StateYaw));
+        // logfile<<" normalizeAngle(diff(StateRoll)):"<<diff(StateRoll) <<std::endl;
         return diff;
       });
 
@@ -502,6 +510,7 @@ void Localization::setupProcessModel()
 
 void Localization::setupMeasurementModels()
 {
+  depthModel_.model_name = "depth_model";
   depthModel_.measurementFn =
       [](const Eigen::Matrix<double, STATE_SIZE, 1> &state)
       -> Eigen::Matrix<double, DEPTH_SIZE, 1>
@@ -511,6 +520,7 @@ void Localization::setupMeasurementModels()
     return measurement;
   };
 
+  dvlModel_.model_name = "dvl_model";
   dvlModel_.measurementFn =
       [](const Eigen::Matrix<double, STATE_SIZE, 1> &state)
       -> Eigen::Matrix<double, DVL_SIZE, 1>
@@ -522,6 +532,7 @@ void Localization::setupMeasurementModels()
     return measurement;
   };
 
+  imuModel_.model_name = "imu_model";
   imuModel_.measurementFn =
       [](const Eigen::Matrix<double, STATE_SIZE, 1> &state)
       -> Eigen::Matrix<double, IMU_SIZE, 1>
@@ -546,10 +557,10 @@ void Localization::setupMeasurementModels()
     Eigen::Matrix<double, IMU_SIZE, 1> diff = a - b;
     // wrap rpy
     // logfile<<std::fixed<<std::setprecision(4)<<"a(ImuRoll):"<<a(ImuRoll)<<" diff(ImuRoll):"<<diff(ImuRoll)<<std::endl;
-    diff(ImuRoll) = NormalizeAngle(diff(ImuRoll));
-    diff(ImuPitch) = NormalizeAngle(diff(ImuPitch));
-    diff(ImuYaw) = NormalizeAngle(diff(ImuYaw));
-    // logfile<<std::fixed<<std::setprecision(4)<<"NormalizeAngle(diff(ImuRoll) ):" <<diff(ImuRoll)<<std::endl;
+    diff(ImuRoll) = normalizeAngle(diff(ImuRoll));
+    diff(ImuPitch) = normalizeAngle(diff(ImuPitch));
+    diff(ImuYaw) = normalizeAngle(diff(ImuYaw));
+    // logfile<<std::fixed<<std::setprecision(4)<<"normalizeAngle(diff(ImuRoll) ):" <<diff(ImuRoll)<<std::endl;
     return diff;
   };
   imuModel_.meanFn =
@@ -584,6 +595,7 @@ void Localization::setupMeasurementModels()
     return mean;
   };
 
+  angleModel_.model_name = "angle_model";
   angleModel_.measurementFn =
       [](const Eigen::Matrix<double, STATE_SIZE, 1> &state)
       -> Eigen::Matrix<double, ANGLE_SIZE, 1>
@@ -617,8 +629,8 @@ void Localization::setupMeasurementModels()
       -> Eigen::Matrix<double, ANGLE_SIZE, 1>
   {
     Eigen::Matrix<double, ANGLE_SIZE, 1> diff = a - b;
-    diff(0) = NormalizeAngle(diff(0));
-    diff(1) = NormalizeAngle(diff(1));
+    diff(0) = normalizeAngle(diff(0));
+    diff(1) = normalizeAngle(diff(1));
     return diff;
   };
   angleModel_.meanFn =
@@ -645,6 +657,8 @@ void Localization::setupMeasurementModels()
     }
     return mean;
   };
+
+  recvimModel_.model_name = "recvim_model";
   recvimModel_.measurementFn =
       [](const Eigen::Matrix<double, STATE_SIZE, 1> &state)
       -> Eigen::Matrix<double, RECVIM_SIZE, 1>
@@ -671,6 +685,7 @@ void Localization::setupMeasurementModels()
     return measurement;
   };
 
+  usblInitialModel_.model_name = "usblInitialModel";
   usblInitialModel_.measurementFn = 
       [](const Eigen::Matrix<double, STATE_SIZE, 1> &state)
       -> Eigen::Matrix<double, USBL_INITIAL_SIZE, 1>
@@ -689,7 +704,7 @@ void Localization::setupMeasurementModels()
     Eigen::Matrix<double, USBL_INITIAL_SIZE, 1> diff = a - b;
     for (int i = 3; i < 6; i ++)
     {
-      diff(i) = NormalizeAngle(diff(i));
+      diff(i) = normalizeAngle(diff(i));
     }
 
     return diff;
@@ -725,6 +740,15 @@ void Localization::setupMeasurementModels()
       mean(i + 3) = atan2(sum_sin[i], sum_cos[i]);
     }
     return mean;
+  };
+  xyModel_.measurementFn =
+      [](const Eigen::Matrix<double, STATE_SIZE, 1> &state)
+      -> Eigen::Matrix<double, XY_SIZE, 1>
+  {
+    Eigen::Matrix<double, XY_SIZE, 1> measurement;
+    measurement(0) = state(StateX);
+    measurement(1) = state(StateY);
+    return measurement;
   };
 }
 //   recvimModel_.measurementFn =
@@ -766,7 +790,10 @@ void Localization::setProcessNoise(
   filter_.setProcessNoise(Q);
   reset();
 }
-
+void Localization::changeProcessNoise(const Eigen::Matrix<double, STATE_SIZE, STATE_SIZE> &Q)
+{
+  filter_.setProcessNoise(Q);
+}
 void Localization::setParam(bool INITIALIZATION_NLS, double threshold)
 {
   INITIALIZATION_NLS_ = INITIALIZATION_NLS;
