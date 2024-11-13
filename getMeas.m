@@ -1,13 +1,23 @@
-function [initState, y, groundTruth, params] = getMeas(flag, dynModel, measModel, folder)
+function [initState, y, groundTruth, params] = getMeas(flag, dynModel, measModel, filter, folder)
 if flag == 1
 	[initState, y, groundTruth] = readData(folder);
 else
 	% Default settings
 	params = [];
-	Qparam = [1e-4, 1e-4, 1e-2, 1e-6, 4e-2];
-	Q0param = [1e-4, 1e-4, 1e-4, 4e-2, 900];
-	Rparam = [1, 16e-4, 0.0175^2, 1];
+	% pf
+	switch filter
+		case 'pf'
+			Qparam = [1e-4, 1e-4, 1e-2, 1e-6, 4e-2];
+			Q0param = [1e-4, 1e-4, 1e-4, 4e-2, 900];
+			Rparam = [1, 16e-4, 0.0175^2, 1];
+		case 'ukf'
+			% ukf
+			Qparam = [1e-4, 1e-4, 1e-2, 1e-8, 1e-4];
+			Q0param = [1e-4, 1e-4, 1e-4, 1e-4, 100];
+			Rparam = [1, 16e-4, 0.0175^2, 1];
 
+	end
+	
 	Qpos = diag(20 * ones(1, 3) * Qparam(1));
 	Qeuler = diag(20 * [1, 1, 4] * Qparam(2));
 	Qvel = diag(20 * ones(1, 3) * Qparam(3));

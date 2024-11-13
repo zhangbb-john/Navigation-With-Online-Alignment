@@ -1,6 +1,6 @@
 close all;
 clear;
-
+originalPath = path;
 addpath(genpath('./.'))
 global iPos iQuat iVel iOffset iBeacon;
 global iMeasEuler iMeasVel iMeasDoa iMeasDoppler;
@@ -24,13 +24,14 @@ debug_i = 0;
 offset_errs = [];
 pos_errs = [];
 pos_final_errs = [];
+beacon_errs = [];
 filter = 'pf';%ukf, ekf
 makeplots = false;
-for trial = 1 : 2
+for trial = 1 : 1
 tic;
 pause(5);
 close all;
-[x0, measurements, x_true, params] = getMeas(flag, @dynModel, @measModel, folder);
+[x0, measurements, x_true, params] = getMeas(flag, @dynModel, @measModel, filter, folder);
 x0_nonLin = x0;
 N_P = 100; % Number of particles
 
@@ -119,6 +120,7 @@ end
 % 	
 % end
 offset_errs = [offset_errs; norm([traj_mean(iOffset, end) - x_true.gt(iOffset, end)])];
+beacon_errs = [beacon_errs; norm([traj_mean(iBeacon, end) - x_true.gt(iBeacon, end)])];
 pos_errs = [pos_errs; rmse_pos_pf];
 pos_final_errs = [pos_final_errs; sqrt((traj_mean(iPos(1), end) - x_true.gt(iPos(1), end)).^2 + (traj_mean(iPos(2), end) - x_true.gt(iPos(2), end)).^2)];
 pause(1);
@@ -126,8 +128,10 @@ disp([num2str(trial), '-th trial takes ', num2str(toc), ' seconds']);
 end
 rms(offset_errs)
 disp(['RMSE of offset is ', num2str(rms(offset_errs))]);
+disp(['RMSE of beacon position is ', num2str(rms(beacon_errs))]);
 disp(['RMS of position rmse for multiple trials is ', num2str(rms(pos_errs))]);
 disp(['RMS of final position error for multiple trials is ', num2str(rms(pos_final_errs))]);
+path(originalPath);
 
 function [xpred] = initialize(xn, Q)
 	global iPos iQuat iVel iOffset iBeacon debug_i;
@@ -197,7 +201,7 @@ function measurement = measModel(xn, Q)
 
 		measurement(iMeasVel) = [velocity(1); velocity(2); velocity(3)];
 		measurement(iMeasDoa) = [atan2(base2beaconInUSBL(2), base2beaconInUSBL(1)); asin(base2beaconInUSBL(3) / norm(base2beaconInUSBL))];	
-		measurement(iMeasDoppler) = [base2beaconInbase' * velocity; xn(iBeacon(end))]; 
+		measurement(iMeasDoppler) = [base2beaconInbase' * velocity / norm(base2beaconInbase); xn(iBeacon(end))]; 
 	else 
 		measurement(iMeasEuler) = [euler(1); euler(2); euler(3)] + chol(Q(iMeasEuler, iMeasEuler),'lower') * randn(3,1);
 		measurement(iMeasVel) = [velocity(1); velocity(2); velocity(3)] + chol(Q(iMeasVel, iMeasVel),'lower') * randn(3,1);

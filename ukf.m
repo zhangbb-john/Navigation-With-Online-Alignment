@@ -36,7 +36,7 @@ for k=1:N_T
 		if (isNotPositiveDefinite)
 			P = Q0;
 		end 
-		
+
 		[M,P] = ukf_update1(M,P,measurements(k,:)',measModel,R,[], 1, 2, 0, 0, [iQuat, iOffset], [iMeasEuler, iMeasDoa]);
 		eigenvalues = eig(P);
 		isNotPositiveDefinite = any(eigenvalues <= 1e-15); % Not PD if any eigenvalue is <= 0
@@ -51,8 +51,6 @@ for k=1:N_T
 			plot(traj_max(iPos(1), 1 : (k - 1)), 'r.'); hold on;
 			plot(traj_max(iPos(2), 1 : (k - 1)), 'g.'); hold on;	
 			plot(traj_max(iPos(3), 1 : (k - 1)), 'b.'); hold on;
-			figure(51)
-			plot3(traj_max(iPos(1), 1 : k), traj_max(iPos(2), 1 : k), traj_max(iPos(3), 1 : k), 'r-');
 			for kk = 1 : 5
 				min_diag_value = 1e-6; % Minimum desired value for diagonals
 				diag(max(min_diag_value - diag(P), 0));
@@ -60,6 +58,8 @@ for k=1:N_T
 			end
 % 			P = Q0;
 		end 
+% 		figure(51)
+% 		plot3(traj_max(iPos(1), 1 : (k-1)), traj_max(iPos(2), 1 : (k-1)), traj_max(iPos(3), 1 : (k-1)), 'r-');
 
 	end
 	traj_max(:,k)   = M;
