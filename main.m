@@ -25,7 +25,7 @@ offset_errs = [];
 pos_errs = [];
 pos_final_errs = [];
 beacon_errs = [];
-filter = 'pf';%ukf, ekf
+filter = 'ekf';%e.g., ukf, pf, ekf
 makeplots = false;
 for trial = 1 : 1
 tic;
@@ -44,12 +44,22 @@ switch filter
 		[traj_max, traj_mean, xl_max, xl_mean, traj_std, P_mean, traj_sample_iwmax] = ...
 			particleFilter(@initialize, @dynModel, @measModel, measurements,...
 			x0_nonLin, params.Q0, params.Qprocess, params.Qmeas, N_P, params.dt, x_true, makeplots);		
+		
+	case 'ekf'
+		[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
+			ekf(@initialize, @dynModel, @measModel, measurements,...
+			x0_nonLin, params.Q0, params.Qprocess, params.Qmeas, params.dt, x_true, makeplots);
 end
 figure(iOffset(1));
 plot(traj_mean(iOffset(1), :), 'r-'); hold on;
 plot(traj_mean(iOffset(2), :), 'g-'); hold on;
 plot(traj_mean(iOffset(3), :), 'b-'); hold on;
 title('Offset');
+figure(iBeacon(1));
+plot(traj_mean(iBeacon(1), :), 'r-'); hold on;
+plot(traj_mean(iBeacon(2), :), 'g-'); hold on;
+plot(traj_mean(iBeacon(3), :), 'b-'); hold on;
+title('Beacon');
 figure(iPos(1));
 plot(traj_mean(iPos(1), :), traj_mean(iPos(2), :), 'r-'); hold on;
 title('Trajectory');
@@ -75,12 +85,22 @@ if (size(measurements, 2) > iMeasVel(3))
 	plot(traj_mean(iVel(3), :), 'b-'); hold on;
 end
 figure(iQuat(1));
-subplot(2, 1, 1);
+subplot(4, 1, 1);
+plot_est_yaw = plot(traj_mean(iQuat(1), :), 'r-'); hold on;
+plot(measurements(:, iMeasEuler(1)), 'k');
+legend('estimated roll', 'Measured roll');
+title('Estimated roll ');
+subplot(4, 1, 2);
+plot_est_yaw = plot(traj_mean(iQuat(2), :), 'r-'); hold on;
+plot(measurements(:, iMeasEuler(2)), 'k');
+legend('estimated pitch', 'Measured pitch');
+title('Estimated pitch ');
+subplot(4, 1, 3);
 plot_est_yaw = plot(traj_mean(iQuat(3), :), 'r-'); hold on;
 plot(measurements(:, iMeasEuler(3)), 'k');
 legend('estimated yaw', 'Measured yaw');
 title('Estimated yaw ');
-subplot(2, 1, 2);
+subplot(4, 1, 4);
 NormalizeAngle = @(angle)(mod(angle + pi, 2 * pi) + (mod(angle + pi, 2 * pi) < 0) * 2 * pi) - pi;
 
 plot(NormalizeAngle(traj_mean(iQuat(3), :) - measurements(:, iMeasEuler(3))'), 'r-'); hold on;

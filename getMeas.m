@@ -15,7 +15,11 @@ else
 			Qparam = [1e-4, 1e-4, 1e-2, 1e-8, 1e-4];
 			Q0param = [1e-4, 1e-4, 1e-4, 1e-4, 100];
 			Rparam = [1, 16e-4, 0.0175^2, 1];
-
+		case 'ekf'
+			% ukf
+			Qparam = [1e-4, 1e-4, 16e-4, 1e-8, 1e-2];
+			Q0param = [1e-4, 1e-4, 1e-4, 1e-4, 100];
+			Rparam = [1, 16e-4, 0.0175^2, 1];
 	end
 	
 	Qpos = diag(20 * ones(1, 3) * Qparam(1));

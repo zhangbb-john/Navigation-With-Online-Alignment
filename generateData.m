@@ -226,10 +226,8 @@ switch trajType
 %         dp = [-K * ellipse_x * sin(K * t); K * ellipse_y * cos(K * t); z * K1 * K * cos(K1 * K * t));
 		dPos = diff(pos'); % Resulting odometry
         N = length(pos);
-
 		vel = dPos./ params.dt;
 		vel = [vel(1, :); vel]';
-	
         k_roll = 0.9;
         k_pitch = 0.9;
         k_yaw = 3.14;
