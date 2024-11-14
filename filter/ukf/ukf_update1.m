@@ -107,8 +107,9 @@ function [M,P,K,MU,S,LH] = ukf_update1(M,P,Y,h,R,h_param,alpha,beta,kappa,mat, s
 	error = (Y - MU);
 	NormalizeAngle = @(angle)(mod(angle + pi, 2 * pi) + (mod(angle + pi, 2 * pi) < 0) * 2 * pi) - pi;
 	error(meas_angle_idx) = NormalizeAngle(error(meas_angle_idx));
-	cS = chol(S,'lower');
+	cS = chol(S,'lower'); diag_cS = diag(cS);
 	normalized_err = cS \ error;
+	innovation = K * error;
 	M = M + K * error;
 	P = P - K * S * K';
 	for ri = 1 : 2

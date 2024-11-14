@@ -25,7 +25,7 @@ offset_errs = [];
 pos_errs = [];
 pos_final_errs = [];
 beacon_errs = [];
-filter = 'ekf';%e.g., ukf, pf, ekf
+filter = 'lsUkf';%e.g., ukf, pf, ekf
 makeplots = false;
 for trial = 1 : 1
 tic;
@@ -49,6 +49,10 @@ switch filter
 		[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
 			ekf(@initialize, @dynModel, @measModel, measurements,...
 			x0_nonLin, params.Q0, params.Qprocess, params.Qmeas, params.dt, x_true, makeplots);
+	case 'lsUkf'
+		[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
+			lsUkf(@initialize, @dynModel, @measModel, measurements,...
+			x0_nonLin, params.Q0, params.Qprocess, params.Qmeas, params.dt, x_true);		
 end
 figure(iOffset(1));
 plot(traj_mean(iOffset(1), :), 'r-'); hold on;
