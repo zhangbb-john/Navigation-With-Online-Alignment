@@ -218,8 +218,8 @@ switch trajType
         ellipse_y = 50;
         z = 50;                                                  
         K1 = 10;     
-		t_end = 750;
-		circle_num = 1;
+		t_end = 6000;
+		circle_num = 8;
         K = 2 * pi / (t_end / circle_num); 
 		t = 0 : params.dt : t_end;
         pos = [ellipse_x * cos(K * t) - ellipse_x; ellipse_y * sin(K * t); z * sin(K1 * K * t)];

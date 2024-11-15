@@ -2,7 +2,7 @@
 function [traj_max,traj_mean,traj_std,P_mean,traj_sample_iwmax] = ...
     lsUkf(initialize, dynModel,measModel,measurements,...
     x0_nonLin,Q0,Q,R,dt, groundTruth)
-disp('Performing UKF ...');
+disp('Performing LS-UKF ...');
 iPos = 1 : 3;
 iQuat = 4 : 6;
 iVel = 7 : 9;
@@ -12,7 +12,7 @@ iMeasEuler = 1 : 3;
 iMeasVel = 4 : 6;
 iMeasDoa = 7 : 8;
 iMeasDoppler = 9 : 10;
-
+freq_acoustic = 2;
 nNonLin = size(x0_nonLin,1);
 N_T = size(measurements,1);% original Y is measurement * state_num
 
@@ -33,8 +33,7 @@ for k=1:N_T
 	else
 		if (flag_nls)
 			[M, P] = ukf_predict1(M,P,dynModel,Q, dt, 1, 2, 0, 0, [iQuat, iOffset]);
-			R1 = R;
-			idx = [iMeasDoa, iMeasDoppler]; R1(idx, idx) = R1(idx, idx) * 1e6;
+			R1 = R; idx = [iMeasDoa, iMeasDoppler]; R1(idx, idx) = R1(idx, idx) * 1e6;
 			[M, P] = ukf_update1(M, P, measurements(k,:)', measModel, R1, [], 1, 2, 0, 0, [iQuat, iOffset], [iMeasEuler, iMeasDoa]);
 			M([iOffset, iBeacon]) = x0_nonLin([iOffset, iBeacon]);
 			P([iOffset, iBeacon], [iOffset, iBeacon]) = Q0([iOffset, iBeacon], [iOffset, iBeacon]);
@@ -43,8 +42,31 @@ for k=1:N_T
 			if (isNotPositiveDefinite)
 				P = Q0;
 			end 
-			nls_data = [nls_data, [M(iPos(1): iVel(end)); measurements(k, [iMeasDoa, iMeasDoppler])']];
-			if (size(nls_data, 2) > 6000)
+			if (mod(k * dt, 1 / freq_acoustic) < 0.01)
+				nls_data = [nls_data, [M(iPos(1): iVel(end)); measurements(k, [iMeasDoa, iMeasDoppler])']];
+			end
+		
+			if (size(nls_data, 2) / freq_acoustic > 300)
+				dr_error = nls_data(iPos, end) - groundTruth.gt(iPos, k);
+				nls_pos_err = norm(dr_error);
+				disp(['nls final pos err of dead reckoning is ', num2str(nls_pos_err), ' meter']);	
+				figure(iQuat(2) * 10);
+				subplot(3, 2, 1); plot(1 : (k-1), traj_max(iQuat(1), 1 : (k-1)), 'r.'); hold on;
+				subplot(3, 2, 3); plot(1 : (k-1), traj_max(iQuat(2), 1 : (k-1)), 'r.'); hold on;
+				subplot(3, 2, 5); plot(1 : (k-1), traj_max(iQuat(3), 1 : (k-1)), 'r.'); hold on;
+				NormalizeAngle = @(angle)(mod(angle + pi, 2 * pi) + (mod(angle + pi, 2 * pi) < 0) * 2 * pi) - pi;
+				subplot(3, 2, 2); plot(1 : (k-1), NormalizeAngle(traj_max(iQuat(1), 1 : (k-1)) - groundTruth.gt(iQuat(1), 1 : (k-1))), 'r.'); hold on;
+				subplot(3, 2, 4); plot(1 : (k-1), NormalizeAngle(traj_max(iQuat(2), 1 : (k-1)) - groundTruth.gt(iQuat(2), 1 : (k-1))), 'r.'); hold on;
+				subplot(3, 2, 6); plot(1 : (k-1), NormalizeAngle(traj_max(iQuat(3), 1 : (k-1)) - groundTruth.gt(iQuat(3), 1 : (k-1))), 'r.'); hold on;	
+				sgtitle('euler of nls stage');
+				figure(iVel(2) * 10);
+				subplot(3, 2, 1); plot(1 : (k-1), traj_max(iVel(1), 1 : (k-1)), 'r.'); hold on;
+				subplot(3, 2, 3); plot(1 : (k-1), traj_max(iVel(2), 1 : (k-1)), 'r.'); hold on;
+				subplot(3, 2, 5); plot(1 : (k-1), traj_max(iVel(3), 1 : (k-1)), 'r.'); hold on;
+				subplot(3, 2, 2); plot(1 : (k-1), (traj_max(iVel(1), 1 : (k-1)) - groundTruth.gt(iVel(1), 1 : (k-1))), 'r.'); hold on;
+				subplot(3, 2, 4); plot(1 : (k-1), (traj_max(iVel(2), 1 : (k-1)) - groundTruth.gt(iVel(2), 1 : (k-1))), 'r.'); hold on;
+				subplot(3, 2, 6); plot(1 : (k-1), (traj_max(iVel(3), 1 : (k-1)) - groundTruth.gt(iVel(3), 1 : (k-1))), 'r.'); hold on;	
+				sgtitle('velocity of nls stage');
 				figure(iPos(2)* 10);
 				plot(nls_data(iPos(1), :), nls_data(iPos(2), :), 'r.'); hold on; 
 				plot(-50, 20, 'b+'); hold on;
@@ -67,8 +89,13 @@ for k=1:N_T
 			if (isNotPositiveDefinite)
 				P = Q0;
 			end 
-
-			[M,P] = ukf_update1(M,P,measurements(k,:)',measModel,R,[], 1, 2, 0, 0, [iQuat, iOffset], [iMeasEuler, iMeasDoa]);
+			if (mod(k * dt, 1 / freq_acoustic) > 0.01)
+				R1 = R; idx = [iMeasDoa, iMeasDoppler]; R1(idx, idx) = R1(idx, idx) * 1e6;
+			else
+				R1 = R;
+			end
+				
+			[M,P] = ukf_update1(M,P,measurements(k,:)',measModel,R1,[], 1, 2, 0, 0, [iQuat, iOffset], [iMeasEuler, iMeasDoa]);
 			eigenvalues = eig(P);
 			isNotPositiveDefinite = any(eigenvalues <= 1e-15); % Not PD if any eigenvalue is <= 0
 			if (isNotPositiveDefinite)

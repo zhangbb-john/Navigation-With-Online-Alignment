@@ -110,17 +110,21 @@ NormalizeAngle = @(angle)(mod(angle + pi, 2 * pi) + (mod(angle + pi, 2 * pi) < 0
 plot(NormalizeAngle(traj_mean(iQuat(3), :) - measurements(:, iMeasEuler(3))'), 'r-'); hold on;
 title('Yaw error');
 figure(iPos(2));
-subplot(3,1,1); 
+subplot(4,1,1); 
 plot(traj_mean(iPos(1), :), 'r-'); hold on;
 plot(x_true.gt(iPos(1), :), 'g-');
 title('x position [m]');
-subplot(3,1,2); 
+subplot(4,1,2); 
 plot(traj_mean(iPos(2), :), 'r-'); hold on;
 plot(x_true.gt(iPos(2), :), 'g-');
 title('y position [m]');
-
-subplot(3,1,3); 
-plot(sqrt((traj_mean(iPos(1), :) - x_true.gt(iPos(1), :)).^2 + (traj_mean(iPos(2), :) - x_true.gt(iPos(2), :)).^2) , 'r-'); hold on;
+subplot(4,1,3); 
+plot(traj_mean(iPos(3), :), 'r-'); hold on;
+plot(x_true.gt(iPos(3), :), 'g-');
+title('z position [m]');
+subplot(4,1,4); 
+plot(sqrt((traj_mean(iPos(1), :) - x_true.gt(iPos(1), :)).^2 + (traj_mean(iPos(2), :) - x_true.gt(iPos(2), :)).^2 ...
+	+ (traj_mean(iPos(3), :) - x_true.gt(iPos(3), :)).^2) , 'r-'); hold on;
 title('Error [m]')
 figure(iPos(3));
 plot3(traj_mean(iPos(1), :), traj_mean(iPos(2), :), traj_mean(iPos(3), :), 'r-'); hold on;
@@ -150,12 +154,19 @@ pos_final_errs = [pos_final_errs; sqrt((traj_mean(iPos(1), end) - x_true.gt(iPos
 pause(1);
 disp([num2str(trial), '-th trial takes ', num2str(toc), ' seconds']);
 end
-rms(offset_errs)
-disp(['RMSE of offset is ', num2str(rms(offset_errs))]);
-disp(['RMSE of beacon position is ', num2str(rms(beacon_errs))]);
-disp(['RMS of position rmse for multiple trials is ', num2str(rms(pos_errs))]);
-disp(['RMS of final position error for multiple trials is ', num2str(rms(pos_final_errs))]);
+str = ['RMSE of offset is deg', num2str(180 / pi * rms(offset_errs)), ';RMSE of beacon position is ', num2str(rms(beacon_errs)), ...
+	';RMS of position rmse for multiple trials is ', num2str(rms(pos_errs)), ';RMS of final position error for multiple trials is ', num2str(rms(pos_final_errs))];
+disp(str);
+% disp(['RMSE of beacon position is ', num2str(rms(beacon_errs))]);
+% disp(['RMS of position rmse for multiple trials is ', num2str(rms(pos_errs))]);
+% disp(['RMS of final position error for multiple trials is ', num2str(rms(pos_final_errs))]);
 path(originalPath);
+description = "This is a dataset 0.2hz acoustic ";
+folderName = ['../data_', num2str(2), 'hz'];
+writeToFolder(offset_errs, folderName, description)
+writeToFolder(beacon_errs, folderName, description)
+writeToFolder(pos_errs, folderName, description)
+writeToFolder(pos_final_errs, folderName, str)
 
 function [xpred] = initialize(xn, Q)
 	global iPos iQuat iVel iOffset iBeacon debug_i;

@@ -23,12 +23,12 @@ else
 		case 'lsUkf'
 			%lsUkf
 			Qparam = [1e-4, 1e-4, 1e-2, 1e-12, 1e-6];
-			Q0param = [1e-4, 1e-4, 1e-4, 1e-6, 1];
+			Q0param = [1e-4, 1e-2, 1e-2, 1e-6, 1];
 			Rparam = [1, 16e-4, 0.0175^2, 1];			
 		otherwise
 			% othere
 			Qparam = [1e-4, 1e-4, 1e-2, 1e-8, 1e-4];
-			Q0param = [1e-4, 1e-4, 1e-4, 1e-4, 100];
+			Q0param = [1e-4, 1e-4, 1e-2, 1e-4, 100];
 			Rparam = [1, 16e-4, 0.0175^2, 1];			
 	end
 	
@@ -47,10 +47,10 @@ else
 
 	Q0 = blkdiag(Q0pos, Q0euler, Q0vel, Q0offset, Q0beacon);
 	params.Q0 = Q0;
-	Reuler = diag([0.01, 0.01, 0.0349]) * diag([0.01, 0.01, 0.0349]) * Rparam(1);
+	Reuler = diag([0.007, 0.007, 0.034]) * diag([0.007, 0.007, 0.034]) * Rparam(1);
 	Rvel = diag(ones(1, 3) * Rparam(2));
 	Rdoa = diag([1 1 ] * Rparam(3));
-	Rdoppler = diag([0.01, 0.36] * Rparam(4));
+	Rdoppler = diag([25e-4, 0.36] * Rparam(4));
 	params.Qmeas = blkdiag(Reuler, Rvel, Rdoa, Rdoppler);
 	params.trajType = '21';
 	params.makePlots = 1;
