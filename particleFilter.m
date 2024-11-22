@@ -47,8 +47,9 @@ iOffset = 10 : 12;
 iBeacon = 13 : 15;
 iMeasEuler = 1 : 3;
 iMeasVel = 4 : 6;
-iMeasDoa = 7 : 8;
-iMeasDoppler = 9 : 10;
+iMeasDepth = 7;
+iMeasDoa = 8 : 9;
+iMeasDoppler = 10 : 11;
 %% Initialise weights, states and covariance matrices
 
 % Initial weights

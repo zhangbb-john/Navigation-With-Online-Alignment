@@ -10,8 +10,9 @@ iOffset = 10 : 12;
 iBeacon = 13 : 15;
 iMeasEuler = 1 : 3;
 iMeasVel = 4 : 6;
-iMeasDoa = 7 : 8;
-iMeasDoppler = 9 : 10;
+iMeasDepth = 7;
+iMeasDoa = 8 : 9;
+iMeasDoppler = 10 : 11;
 
 nNonLin = size(x0_nonLin,1);
 N_T = size(measurements,1);% original Y is measurement * state_num
@@ -160,9 +161,10 @@ function measurement = easyMeasModel(xn)
 	measEuler = [euler(1); euler(2); euler(3)];
 
 	measVel = [velocity(1); velocity(2); velocity(3)];
+	measDepth = xn(iPos(end));
 	measDoa = [atan2(base2beaconInUSBL(2), base2beaconInUSBL(1)); asin(base2beaconInUSBL(3) / norm(base2beaconInUSBL))];	
 	measDoppler = [base2beaconInbase' * velocity / norm(base2beaconInbase); xn(iBeacon(end))]; 
-	measurement = [measEuler; measVel; measDoa; measDoppler];
+	measurement = [measEuler; measVel; measDepth; measDoa; measDoppler];
 end
 
 end

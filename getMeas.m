@@ -24,7 +24,7 @@ else
 			%lsUkf
 			Qparam = [1e-4, 1e-4, 1e-2, 1e-12, 1e-6];
 			Q0param = [1e-4, 1e-2, 1e-2, 1e-6, 1];
-			Rparam = [1, 16e-4, 0.0175^2, 1];			
+			Rparam = [1, 16e-4, 1, 0.0175^2, 1];			
 		otherwise
 			% othere
 			Qparam = [1e-4, 1e-4, 1e-2, 1e-8, 1e-4];
@@ -49,10 +49,11 @@ else
 	params.Q0 = Q0;
 	Reuler = diag([0.007, 0.007, 0.034]) * diag([0.007, 0.007, 0.034]) * Rparam(1);
 	Rvel = diag(ones(1, 3) * Rparam(2));
-	Rdoa = diag([1 1 ] * Rparam(3));
-	Rdoppler = diag([25e-4, 0.36] * Rparam(4));
-	params.Qmeas = blkdiag(Reuler, Rvel, Rdoa, Rdoppler);
-	params.trajType = '21';
+	Rdepth = 0.36 * Rparam(3);
+	Rdoa = diag([1 1 ] * Rparam(4));
+	Rdoppler = diag([25e-4, 0.36] * Rparam(5));
+	params.Qmeas = blkdiag(Reuler, Rvel, Rdepth, Rdoa, Rdoppler);
+	params.trajType = '22';
 	params.makePlots = 1;
 	params.visualiseResults = 1;
 	params.dt = 0.05;

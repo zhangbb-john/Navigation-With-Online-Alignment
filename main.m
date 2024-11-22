@@ -3,7 +3,7 @@ clear;
 originalPath = path;
 addpath(genpath('./.'))
 global iPos iQuat iVel iOffset iBeacon;
-global iMeasEuler iMeasVel iMeasDoa iMeasDoppler;
+global iMeasEuler iMeasVel iMeasDepth iMeasDoa iMeasDoppler;
 iPos = 1 : 3;
 iQuat = 4 : 6;
 iVel = 7 : 9;
@@ -12,21 +12,23 @@ iBeacon = 13 : 15;
 
 iMeasEuler = 1 : 3;
 iMeasVel = 4 : 6;
-iMeasDoa = 7 : 8;
-iMeasDoppler = 9 : 10;
+iMeasDepth = 7;
+iMeasDoa = 8 : 9;
+iMeasDoppler = 10 : 11;
 % x = [px, py, pz, eulerx, eulery, eulerz, anglex, angley, anglez, beaconx, beacony, beaconz];
 folder = './';
 
 flag = 0; %0 simulation; 1 read data;
 global debug_i;
 debug_i = 0;
-
+trajs = [];
 offset_errs = [];
 pos_errs = [];
 pos_final_errs = [];
-beacon_errs = [];
+beacon_results = []; beacon_errs = [];
 filter = 'lsUkf';%e.g., ukf, pf, ekf
 makeplots = false;
+
 for trial = 1 : 1
 tic;
 pause(5);
@@ -153,6 +155,7 @@ pos_errs = [pos_errs; rmse_pos_pf];
 pos_final_errs = [pos_final_errs; sqrt((traj_mean(iPos(1), end) - x_true.gt(iPos(1), end)).^2 + (traj_mean(iPos(2), end) - x_true.gt(iPos(2), end)).^2)];
 pause(1);
 disp([num2str(trial), '-th trial takes ', num2str(toc), ' seconds']);
+trajs(:, : , trial) = traj_mean;
 end
 str = ['RMSE of offset is deg', num2str(180 / pi * rms(offset_errs)), ';RMSE of beacon position is ', num2str(rms(beacon_errs)), ...
 	';RMS of position rmse for multiple trials is ', num2str(rms(pos_errs)), ';RMS of final position error for multiple trials is ', num2str(rms(pos_final_errs))];
@@ -166,6 +169,8 @@ folderName = ['../data_', num2str(2), 'hz'];
 writeToFolder(offset_errs, folderName, description)
 writeToFolder(beacon_errs, folderName, description)
 writeToFolder(pos_errs, folderName, description)
+writeToFolder(trajs, folderName, description)
+
 writeToFolder(pos_final_errs, folderName, str)
 
 function [xpred] = initialize(xn, Q)
@@ -220,7 +225,7 @@ function measurement = measModel(xn, Q)
 % 	disp("input xn: column vector");
 % 	disp("output measurement: 10 * 1 vector");
 	global iPos iQuat iVel iOffset iBeacon;
-	global iMeasEuler iMeasVel iMeasDoa iMeasDoppler;
+	global iMeasEuler iMeasVel iMeasDepth iMeasDoa iMeasDoppler;
 
  	euler = xn(iQuat);
 	World2Base  = euler2rot(euler);
@@ -230,16 +235,19 @@ function measurement = measModel(xn, Q)
 	Base2USBL = euler2rot(offset);
     base2beaconInUSBL = Base2USBL' * base2beaconInbase;   
     velocity = xn(iVel);
-	measurement = zeros(10, 1);
+	measurement = zeros(iMeasDoppler(end), 1);
+
 	if size(Q, 1) == 0
 		measurement(iMeasEuler) = [euler(1); euler(2); euler(3)];
 
 		measurement(iMeasVel) = [velocity(1); velocity(2); velocity(3)];
+		measurement(iMeasDepth) = xn(iPos(end));
 		measurement(iMeasDoa) = [atan2(base2beaconInUSBL(2), base2beaconInUSBL(1)); asin(base2beaconInUSBL(3) / norm(base2beaconInUSBL))];	
 		measurement(iMeasDoppler) = [base2beaconInbase' * velocity / norm(base2beaconInbase); xn(iBeacon(end))]; 
 	else 
 		measurement(iMeasEuler) = [euler(1); euler(2); euler(3)] + chol(Q(iMeasEuler, iMeasEuler),'lower') * randn(3,1);
 		measurement(iMeasVel) = [velocity(1); velocity(2); velocity(3)] + chol(Q(iMeasVel, iMeasVel),'lower') * randn(3,1);
+		measurement(iMeasDepth) = xn(iPos(end)) + sqrt(Q(iMeasDepth(end), iMeasDepth(end))) * randn(1,1);
 		measurement(iMeasDoa) = [atan2(base2beaconInUSBL(2), base2beaconInUSBL(1)); asin(base2beaconInUSBL(3) / norm(base2beaconInUSBL))] ...
 			+ chol(Q(iMeasDoa, iMeasDoa),'lower') * randn(2,1);
 		measurement(iMeasDoppler) = [base2beaconInbase' * velocity / norm(base2beaconInbase); xn(iBeacon(end))] + chol(Q(iMeasDoppler, iMeasDoppler),'lower') * randn(2,1); 
@@ -247,5 +255,4 @@ function measurement = measModel(xn, Q)
 	NormalizeAngle = @(angle)(mod(angle + pi, 2 * pi) + (mod(angle + pi, 2 * pi) < 0) * 2 * pi) - pi;
 	measurement(iMeasEuler) = NormalizeAngle(measurement(iMeasEuler));
 	measurement(iMeasDoa) = NormalizeAngle(measurement(iMeasDoa));
-	
 end
