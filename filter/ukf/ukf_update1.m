@@ -65,11 +65,16 @@
 % Licence (version 2 or later); please refer to the file 
 % Licence.txt, included with the software, for details.
 
-function [M,P,K,MU,S,LH] = ukf_update1(M,P,Y,h,R,h_param,alpha,beta,kappa,mat, state_angle_idx, meas_angle_idx)
-
+function [M,P,K,MU,S,LH] = ukf_update1(M,P,Y,h,R,h_param,alpha,beta,kappa,mat, state_angle_idx, meas_angle_idx, neglect_idx)
+	iMeasEuler = 1 : 3;
+	iMeasVel = 4 : 6;
+	iMeasDepth = 7;
+	iMeasDoa = 8 : 9;
+	iMeasDoppler = 10 : 11;
 	%
 	% Check that all arguments are there
 	%
+% 	disp(['num of variable is ', num2str(nargin)]);
 	if nargin < 5
 	error('Too few arguments');
 	end
@@ -88,7 +93,10 @@ function [M,P,K,MU,S,LH] = ukf_update1(M,P,Y,h,R,h_param,alpha,beta,kappa,mat, s
 	if nargin < 10
 	mat = [];
 	end
-
+	
+	if (nargin < 13)
+		neglect_idx = [];
+	end
 	%
 	% Apply defaults
 	%
@@ -105,6 +113,7 @@ function [M,P,K,MU,S,LH] = ukf_update1(M,P,Y,h,R,h_param,alpha,beta,kappa,mat, s
 	S = S + R;
 	K = C / S;
 	error = (Y - MU);
+	error(neglect_idx) = 0;
 	NormalizeAngle = @(angle)(mod(angle + pi, 2 * pi) + (mod(angle + pi, 2 * pi) < 0) * 2 * pi) - pi;
 	error(meas_angle_idx) = NormalizeAngle(error(meas_angle_idx));
 	cS = chol(S,'lower'); diag_cS = diag(cS);

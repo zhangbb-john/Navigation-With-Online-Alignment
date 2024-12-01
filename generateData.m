@@ -260,7 +260,7 @@ switch trajType
 		circle_num = 8;
         K = 2 * pi / (t_end / circle_num); 
 		t = 0 : params.dt : t_end;
-        pos = [ellipse_x * cos(K * t) - ellipse_x; ellipse_y * sin(K * t); z * sin(K1 * K * t)];
+        pos = [ellipse_x * cos(K * t) - ellipse_x; ellipse_y * sin(K * t); z * sin(K1 * K * t) + 20];
 %         dp = [-K * ellipse_x * sin(K * t); K * ellipse_y * cos(K * t); z * K1 * K * cos(K1 * K * t));
 		dPos = diff(pos'); % Resulting odometry
         N = length(pos);

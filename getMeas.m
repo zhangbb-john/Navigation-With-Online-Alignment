@@ -53,7 +53,7 @@ else
 	Rdoa = diag([1 1 ] * Rparam(4));
 	Rdoppler = diag([25e-4, 0.36] * Rparam(5));
 	params.Qmeas = blkdiag(Reuler, Rvel, Rdepth, Rdoa, Rdoppler);
-	params.trajType = '22';
+	params.trajType = '21';
 	params.makePlots = 1;
 	params.visualiseResults = 1;
 	params.dt = 0.05;

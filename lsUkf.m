@@ -13,7 +13,7 @@ iMeasVel = 4 : 6;
 iMeasDepth = 7;
 iMeasDoa = 8 : 9;
 iMeasDoppler = 10 : 11;
-freq_acoustic = 2;
+freq_acoustic = 0.02;
 nNonLin = size(x0_nonLin,1);
 N_T = size(measurements,1);% original Y is measurement * state_num
 
@@ -35,7 +35,7 @@ for k=1:N_T
 		if (flag_nls)
 			[M, P] = ukf_predict1(M,P,dynModel,Q, dt, 1, 2, 0, 0, [iQuat, iOffset]);
 			R1 = R; idx = [iMeasDoa, iMeasDoppler]; R1(idx, idx) = R1(idx, idx) * 1e6;
-			[M, P] = ukf_update1(M, P, measurements(k,:)', measModel, R1, [], 1, 2, 0, 0, [iQuat, iOffset], [iMeasEuler, iMeasDoa]);
+			[M, P] = ukf_update1(M, P, measurements(k,:)', measModel, R1, [], 1, 2, 0, 0, [iQuat, iOffset], [iMeasEuler, iMeasDoa], [iMeasDoa, iMeasDoppler]);
 			M([iOffset, iBeacon]) = x0_nonLin([iOffset, iBeacon]);
 			P([iOffset, iBeacon], [iOffset, iBeacon]) = Q0([iOffset, iBeacon], [iOffset, iBeacon]);
 			eigenvalues = eig(P);
@@ -43,7 +43,7 @@ for k=1:N_T
 			if (isNotPositiveDefinite)
 				P = Q0;
 			end 
-			if (mod(k * dt, 1 / freq_acoustic) < 0.01)
+			if (mod(k * dt, 1 / freq_acoustic) < 0.001)
 				nls_data = [nls_data, [M(iPos(1): iVel(end)); measurements(k, [iMeasDoa, iMeasDoppler])']];
 			end
 		
@@ -68,11 +68,33 @@ for k=1:N_T
 				subplot(3, 2, 4); plot(1 : (k-1), (traj_max(iVel(2), 1 : (k-1)) - groundTruth.gt(iVel(2), 1 : (k-1))), 'r.'); hold on;
 				subplot(3, 2, 6); plot(1 : (k-1), (traj_max(iVel(3), 1 : (k-1)) - groundTruth.gt(iVel(3), 1 : (k-1))), 'r.'); hold on;	
 				sgtitle('velocity of nls stage');
-				figure(iPos(2)* 10);
+				figure(iPos(2) * 20);
+				subplot(1,2,1);
 				plot(nls_data(iPos(1), :), nls_data(iPos(2), :), 'r.'); hold on; 
 				plot(-50, 20, 'b+'); hold on;
 				plot(groundTruth.gt(iPos(1), 1:(k-1)), groundTruth.gt(iPos(2), 1 : (k-1)), 'k.'); hold on;
 				title('Trajectory');
+				subplot(1,2,2);
+				times_period = (1 / dt) / freq_acoustic;
+				
+				k1 = floor((k-1) / times_period);
+				plot((1 : k1) * times_period, nls_data(iQuat(end), 1 : k1), 'r.'); hold on;
+				plot(groundTruth.gt(iQuat(end), 1 : (k-1)), 'k.'); hold on;
+				title('yaw');
+				figure(iPos(2) * 30);
+				for m = 1 : 3
+					subplot(3, 1, m);
+					plot((1 : k1) * times_period, nls_data(iVel(m), 1 : k1), 'r.'); hold on;
+					plot(groundTruth.gt(iVel(m), 1 : (k-1)), 'k.'); hold on;
+					title('vel');
+				end
+				figure(iPos(2) * 21);
+				for m = 1 : 3
+					subplot(3, 1, m);
+					plot((1 : k1) * times_period, nls_data(iPos(m), 1 : k1), 'r.'); hold on;
+					plot(groundTruth.gt(iPos(m), 1 : (k-1)), 'k.'); hold on;
+					title('pos');
+				end
 				param = nlsSolver(nls_data);
 				disp('estimated offset is '); 
 				disp(param(1: 3)')

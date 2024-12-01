@@ -87,3 +87,6 @@ for i = 1 : 8
 end
 figure;
 plot(mean_err, 'r');
+title('Mean errors of elevation estimation');
+ylabel('Elevation Error (degrees)');
+xlabel('True Elevation Angle x10[deg]');

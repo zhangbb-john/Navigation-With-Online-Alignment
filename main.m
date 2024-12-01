@@ -29,7 +29,7 @@ beacon_results = []; beacon_errs = [];
 filter = 'lsUkf';%e.g., ukf, pf, ekf
 makeplots = false;
 
-for trial = 1 : 1
+for trial = 1 : 20
 tic;
 pause(5);
 close all;
@@ -164,8 +164,8 @@ disp(str);
 % disp(['RMS of position rmse for multiple trials is ', num2str(rms(pos_errs))]);
 % disp(['RMS of final position error for multiple trials is ', num2str(rms(pos_final_errs))]);
 path(originalPath);
-description = "This is a dataset 0.2hz acoustic ";
-folderName = ['../data_', num2str(2), 'hz'];
+description = "This is a dataset 0.02hz acoustic ";
+folderName = ['../data_', num2str(0.02), 'hz'];
 writeToFolder(offset_errs, folderName, description)
 writeToFolder(beacon_errs, folderName, description)
 writeToFolder(pos_errs, folderName, description)
@@ -246,7 +246,7 @@ function measurement = measModel(xn, Q)
 		measurement(iMeasDoppler) = [base2beaconInbase' * velocity / norm(base2beaconInbase); xn(iBeacon(end))]; 
 	else 
 		measurement(iMeasEuler) = [euler(1); euler(2); euler(3)] + chol(Q(iMeasEuler, iMeasEuler),'lower') * randn(3,1);
-		measurement(iMeasVel) = [velocity(1); velocity(2); velocity(3)] + chol(Q(iMeasVel, iMeasVel),'lower') * randn(3,1);
+		measurement(iMeasVel) = [velocity(1); velocity(2); velocity(3)] * 1.005 + chol(Q(iMeasVel, iMeasVel),'lower') * randn(3,1);
 		measurement(iMeasDepth) = xn(iPos(end)) + sqrt(Q(iMeasDepth(end), iMeasDepth(end))) * randn(1,1);
 		measurement(iMeasDoa) = [atan2(base2beaconInUSBL(2), base2beaconInUSBL(1)); asin(base2beaconInUSBL(3) / norm(base2beaconInUSBL))] ...
 			+ chol(Q(iMeasDoa, iMeasDoa),'lower') * randn(2,1);
