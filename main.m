@@ -29,7 +29,7 @@ beacon_results = []; beacon_errs = [];
 filter = 'lsUkf';%e.g., ukf, pf, ekf
 makeplots = false;
 
-for trial = 1 : 20
+for trial = 1 : 5
 tic;
 pause(5);
 close all;
@@ -41,6 +41,10 @@ switch filter
 	case 'ukf'
 		[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
 			ukf(@initialize, @dynModel, @measModel, measurements,...
+			x0_nonLin, params.Q0, params.Qprocess, params.Qmeas, params.dt, x_true);
+	case 'drUkf'
+		[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
+			drUkf(@initialize, @dynModel, @measModel, measurements,...
 			x0_nonLin, params.Q0, params.Qprocess, params.Qmeas, params.dt, x_true);
 	case 'pf'
 		[traj_max, traj_mean, xl_max, xl_mean, traj_std, P_mean, traj_sample_iwmax] = ...
@@ -165,7 +169,7 @@ disp(str);
 % disp(['RMS of final position error for multiple trials is ', num2str(rms(pos_final_errs))]);
 path(originalPath);
 description = "This is a dataset 0.02hz acoustic ";
-folderName = ['../data_', num2str(0.02), 'hz'];
+folderName = ['../data_', num2str(0.2), 'hz_', filter];
 writeToFolder(offset_errs, folderName, description)
 writeToFolder(beacon_errs, folderName, description)
 writeToFolder(pos_errs, folderName, description)

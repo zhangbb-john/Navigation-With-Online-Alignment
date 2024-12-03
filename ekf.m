@@ -13,7 +13,8 @@ iMeasVel = 4 : 6;
 iMeasDepth = 7;
 iMeasDoa = 8 : 9;
 iMeasDoppler = 10 : 11;
-
+freq_acoustic = 0.2;
+freq_dvl = 1;
 nNonLin = size(x0_nonLin,1);
 N_T = size(measurements,1);% original Y is measurement * state_num
 
@@ -62,7 +63,15 @@ for k=1:N_T
 			end
 		end
 		H = jac_meas_func(M);
-		[M, P] = ekf_update1(M,P,measurements(k,:)', H, R, @easyMeasModel, [iQuat, iOffset], [iMeasEuler, iMeasDoa]);
+		idx = [];
+		if (mod(k * dt, 1 / freq_dvl) > 0.01)
+			idx = [idx, iMeasVel]; 
+		end
+		if (mod(k * dt, 1 / freq_acoustic) > 0.01)
+			idx = [idx, iMeasDoa, iMeasDoppler]; 
+		end 
+		R1 = R; R1(idx, idx) = R1(idx, idx) * 1e6;
+		[M, P] = ekf_update1(M,P,measurements(k,:)', H, R1, @easyMeasModel, [iQuat, iOffset], [iMeasEuler, iMeasDoa]);
 		if (makeplots)
 			figure(iBeacon(end) + 3);
 			diag_std = sqrt(diag(P));

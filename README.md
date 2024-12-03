@@ -3,8 +3,7 @@ This project is aimed to allow for misalignment-tolerant AUV navigation based on
 
 In this branch, we provide source codes for comparing different state estimation techniques.
 
-# Todo 
-increase the frequency
+
 # Only Collaborators Available
 ## Paper
 

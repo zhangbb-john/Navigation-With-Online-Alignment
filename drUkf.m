@@ -1,8 +1,8 @@
 
 function [traj_max,traj_mean,traj_std,P_mean,traj_sample_iwmax] = ...
-    ukf(initialize, dynModel,measModel,measurements,...
+    drUkf(initialize, dynModel,measModel,measurements,...
     x0_nonLin,Q0,Q,R,dt, groundTruth)
-disp('Performing UKF ...');
+disp('Performing drUKF ...');
 iPos = 1 : 3;
 iQuat = 4 : 6;
 iVel = 7 : 9;
@@ -38,16 +38,14 @@ for k=1:N_T
 		if (isNotPositiveDefinite)
 			P = Q0;
 		end 
-
-		idx = [];
+		R1 = R;  
 		if (mod(k * dt, 1 / freq_dvl) > 0.01)
-			idx = [idx, iMeasVel]; 
+			R1 = R; idx = [iMeasVel,iMeasDoa, iMeasDoppler]; R1(idx, idx) = R1(idx, idx) * 1e6;
+			[M,P] = ukf_update1(M,P,measurements(k,:)',measModel,R1,[], 1, 2, 0, 0, [iQuat, iOffset], [iMeasEuler, iMeasDoa], idx);
+		else
+			R1 = R; idx = [iMeasDoa, iMeasDoppler]; R1(idx, idx) = R1(idx, idx) * 1e6;
+			[M,P] = ukf_update1(M,P,measurements(k,:)',measModel,R1,[], 1, 2, 0, 0, [iQuat, iOffset], [iMeasEuler, iMeasDoa], idx);
 		end
-		if (mod(k * dt, 1 / freq_acoustic) > 0.01)
-			idx = [idx, iMeasDoa, iMeasDoppler]; 
-		end 
-		R1 = R; R1(idx, idx) = R1(idx, idx) * 1e6;		
-		[M,P] = ukf_update1(M,P,measurements(k,:)',measModel,R1,[], 1, 2, 0, 0, [iQuat, iOffset], [iMeasEuler, iMeasDoa]);
 		eigenvalues = eig(P);
 		isNotPositiveDefinite = any(eigenvalues <= 1e-15); % Not PD if any eigenvalue is <= 0
 		if (isNotPositiveDefinite)

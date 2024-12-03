@@ -13,9 +13,10 @@ iMeasVel = 4 : 6;
 iMeasDepth = 7;
 iMeasDoa = 8 : 9;
 iMeasDoppler = 10 : 11;
-freq_acoustic = 0.02;
-nNonLin = size(x0_nonLin,1);
-N_T = size(measurements,1);% original Y is measurement * state_num
+freq_acoustic = 0.2;
+freq_dvl = 1;
+nNonLin = size(x0_nonLin, 1);
+N_T = size(measurements, 1);% original Y is measurement * state_num
 
 % Reserve space for estimates.
 traj_max = zeros(nNonLin, N_T);
@@ -34,8 +35,15 @@ for k=1:N_T
 	else
 		if (flag_nls)
 			[M, P] = ukf_predict1(M,P,dynModel,Q, dt, 1, 2, 0, 0, [iQuat, iOffset]);
-			R1 = R; idx = [iMeasDoa, iMeasDoppler]; R1(idx, idx) = R1(idx, idx) * 1e6;
-			[M, P] = ukf_update1(M, P, measurements(k,:)', measModel, R1, [], 1, 2, 0, 0, [iQuat, iOffset], [iMeasEuler, iMeasDoa], [iMeasDoa, iMeasDoppler]);
+			idx = [];
+			if (mod(k * dt, 1 / freq_dvl) > 0.01)
+				idx = [idx, iMeasVel]; 
+			end
+			idx = [idx, iMeasDoa, iMeasDoppler]; 
+			R1 = R; R1(idx, idx) = R1(idx, idx) * 1e6;			
+% 			R1 = R; idx = [iMeasDoa, iMeasDoppler]; R1(idx, idx) = R1(idx, idx) * 1e6;
+			[M, P] = ukf_update1(M, P, measurements(k,:)', measModel, R1, [], 1, 2, 0, 0, [iQuat, iOffset], ...
+				[iMeasEuler, iMeasDoa], idx);
 			M([iOffset, iBeacon]) = x0_nonLin([iOffset, iBeacon]);
 			P([iOffset, iBeacon], [iOffset, iBeacon]) = Q0([iOffset, iBeacon], [iOffset, iBeacon]);
 			eigenvalues = eig(P);
@@ -112,13 +120,21 @@ for k=1:N_T
 			if (isNotPositiveDefinite)
 				P = Q0;
 			end 
-			if (mod(k * dt, 1 / freq_acoustic) > 0.01)
-				R1 = R; idx = [iMeasDoa, iMeasDoppler]; R1(idx, idx) = R1(idx, idx) * 1e6;
-			else
-				R1 = R;
+			idx = [];
+			if (mod(k * dt, 1 / freq_dvl) > 0.01)
+				idx = [idx, iMeasVel]; 
 			end
+			if (mod(k * dt, 1 / freq_acoustic) > 0.01)
+				idx = [idx, iMeasDoa, iMeasDoppler]; 
+			end 		
+			R1 = R; R1(idx, idx) = R1(idx, idx) * 1e6;
+% 			if (mod(k * dt, 1 / freq_acoustic) > 0.01)
+% 				R1 = R; idx = [iMeasDoa, iMeasDoppler]; R1(idx, idx) = R1(idx, idx) * 1e6;
+% 			else
+% 				R1 = R;
+% 			end
 				
-			[M,P] = ukf_update1(M,P,measurements(k,:)',measModel,R1,[], 1, 2, 0, 0, [iQuat, iOffset], [iMeasEuler, iMeasDoa]);
+			[M,P] = ukf_update1(M,P,measurements(k,:)',measModel,R1,[], 1, 2, 0, 0, [iQuat, iOffset], [iMeasEuler, iMeasDoa], idx);
 			eigenvalues = eig(P);
 			isNotPositiveDefinite = any(eigenvalues <= 1e-15); % Not PD if any eigenvalue is <= 0
 			if (isNotPositiveDefinite)

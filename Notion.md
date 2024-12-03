@@ -1,7 +1,33 @@
 # Todo
-## allow gps position production for reproducing other methods in simulation?
+## how to accomadate 
+function [dx, initState, y, y_Q, groundTruth] = generateData(params,dynModel,measModel)
+
+function [traj_max,traj_mean,traj_std,P_mean,traj_sample_iwmax] = ...
+    ekf(initialize, dynModel,measModel,measurements,...
+    x0_nonLin,Q0,Q,R,dt, groundTruth, makeplots)
+R is multiple 
+
+
+function [traj_max,traj_mean,traj_std,P_mean,traj_sample_iwmax] = ...
+    ukf(initialize, dynModel,measModel,measurements,...
+    x0_nonLin,Q0,Q,R,dt, groundTruth)
+
+R is multiple covariance matrix
+
+
+function [traj_max,traj_mean,traj_std,P_mean,traj_sample_iwmax] = ...
+    lsUkf(initialize, dynModel,measModel,measurements,...
+    x0_nonLin,Q0,Q,R,dt, groundTruth)
+
+R is multiple covariance matrix
+
+
 
 ## 
+
+## allow gps position production for reproducing other methods in simulation?
+
+## increase the frequency
 
 # Issue
 ## How can we avoid PF degenerte, i.e., small covariance not reflecting truth

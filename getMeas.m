@@ -9,20 +9,25 @@ else
 		case 'pf'
 			Qparam = [1e-4, 1e-4, 1e-2, 1e-6, 4e-2];
 			Q0param = [1e-4, 1e-4, 1e-4, 4e-2, 900];
-			Rparam = [1, 16e-4, 0.0175^2, 1];
+			Rparam = [1, 16e-4, 1, 0.0175^2, 1];
 		case 'ukf'
+			% ukf
+			Qparam = [0.25e-4, 1e-4, 16e-4, 1e-10, 25e-4];
+			Q0param = [1e-4, 1e-4, 1e-4, 1e-2, 6400];
+			Rparam = [1, 16e-4, 1, 0.0175^2, 1];
+		case 'drUkf'
 			% ukf
 			Qparam = [1e-4, 1e-4, 1e-2, 1e-8, 1e-4];
 			Q0param = [1e-4, 1e-4, 1e-4, 1e-4, 100];
-			Rparam = [1, 16e-4, 0.0175^2, 1];
+			Rparam = [1, 16e-4, 1, 0.0175^2, 1];
 		case 'ekf'
 			% ukf
-			Qparam = [1e-4, 1e-4, 16e-4, 1e-8, 1e-2];
-			Q0param = [1e-4, 1e-4, 1e-4, 1e-4, 100];
-			Rparam = [1, 16e-4, 0.0175^2, 1];
+			Qparam = [1e-4, 1e-4, 16e-4, 1e-10, 64e-4];
+			Q0param = [1e-4, 1e-4, 1e-4, 1e-2, 6400];
+			Rparam = [1, 16e-4, 1, 0.0175^2, 1];
 		case 'lsUkf'
 			%lsUkf
-			Qparam = [1e-4, 1e-4, 1e-2, 1e-12, 1e-6];
+			Qparam = [1e-4, 1e-4, 16e-4, 1e-12, 1e-6];
 			Q0param = [1e-4, 1e-2, 1e-2, 1e-6, 1];
 			Rparam = [1, 16e-4, 1, 0.0175^2, 1];			
 		otherwise
