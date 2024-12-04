@@ -26,14 +26,16 @@ offset_errs = [];
 pos_errs = [];
 pos_final_errs = [];
 beacon_results = []; beacon_errs = [];
-filter = 'lsUkf';%e.g., ukf, pf, ekf
+filter = 'drUkf';%e.g., ukf, pf, ekf, drUkf, doaUkf
+mode.solution = 'nav';%nav
+mode.data = 'sim';%'field'
 makeplots = false;
 
 for trial = 1 : 5
 tic;
 pause(5);
 close all;
-[x0, measurements, x_true, params] = getMeas(flag, @dynModel, @measModel, filter, folder);
+[x0, measurements, measurements_Q, x_true, params] = getMeas(mode, @dynModel, @measModel, filter, folder);
 x0_nonLin = x0;
 N_P = 100; % Number of particles
 
@@ -41,11 +43,15 @@ switch filter
 	case 'ukf'
 		[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
 			ukf(@initialize, @dynModel, @measModel, measurements,...
-			x0_nonLin, params.Q0, params.Qprocess, params.Qmeas, params.dt, x_true);
+			x0_nonLin, params.Q0, params.Qprocess, measurements_Q, params.dt, x_true);
 	case 'drUkf'
 		[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
 			drUkf(@initialize, @dynModel, @measModel, measurements,...
-			x0_nonLin, params.Q0, params.Qprocess, params.Qmeas, params.dt, x_true);
+			x0_nonLin, params.Q0, params.Qprocess, measurements_Q, params.dt, x_true);
+	case 'doaUkf'
+		[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
+			doaUkf(@initialize, @dynModel, @measModel, measurements,...
+			x0_nonLin, params.Q0, params.Qprocess, measurements_Q, params.dt, x_true);
 	case 'pf'
 		[traj_max, traj_mean, xl_max, xl_mean, traj_std, P_mean, traj_sample_iwmax] = ...
 			particleFilter(@initialize, @dynModel, @measModel, measurements,...
@@ -54,11 +60,11 @@ switch filter
 	case 'ekf'
 		[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
 			ekf(@initialize, @dynModel, @measModel, measurements,...
-			x0_nonLin, params.Q0, params.Qprocess, params.Qmeas, params.dt, x_true, makeplots);
+			x0_nonLin, params.Q0, params.Qprocess, measurements_Q, params.dt, x_true, makeplots);
 	case 'lsUkf'
 		[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
 			lsUkf(@initialize, @dynModel, @measModel, measurements,...
-			x0_nonLin, params.Q0, params.Qprocess, params.Qmeas, params.dt, x_true);		
+			x0_nonLin, params.Q0, params.Qprocess, measurements_Q, params.dt, x_true);		
 end
 figure(iOffset(1));
 plot(traj_mean(iOffset(1), :), 'r-'); hold on;
@@ -169,7 +175,7 @@ disp(str);
 % disp(['RMS of final position error for multiple trials is ', num2str(rms(pos_final_errs))]);
 path(originalPath);
 description = "This is a dataset 0.02hz acoustic ";
-folderName = ['../data_', num2str(0.2), 'hz_', filter];
+folderName = ['../data_', params.trajType, '_', mode.data, '_', mode.solution, '_', num2str(0.2), 'hz_', filter];
 writeToFolder(offset_errs, folderName, description)
 writeToFolder(beacon_errs, folderName, description)
 writeToFolder(pos_errs, folderName, description)

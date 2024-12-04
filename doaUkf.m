@@ -1,8 +1,8 @@
 
 function [traj_max,traj_mean,traj_std,P_mean,traj_sample_iwmax] = ...
-    ukf(initialize, dynModel,measModel,measurements,...
+    doaUkf(initialize, dynModel,measModel,measurements,...
     x0_nonLin,Q0,Q,Rs,dt, groundTruth)
-disp('Performing UKF ...');
+disp('Performing doaUkf ...');
 iPos = 1 : 3;
 iQuat = 4 : 6;
 iVel = 7 : 9;
@@ -40,9 +40,10 @@ for k=1:N_T
 		end 
 
 		R1 = Rs(:, :, k); 
+		R1(iMeasDoppler(1), iMeasDoppler(1)) = R1(iMeasDoppler(1), iMeasDoppler(1)) * 1e6;
 		idx = find(diag(R1) > 100);
 		
-		[M,P] = ukf_update1(M,P,measurements(k,:)',measModel,R1,[], 1, 2, 0, 0, [iQuat, iOffset], [iMeasEuler, iMeasDoa]);
+		[M,P] = ukf_update1(M,P,measurements(k,:)',measModel,R1,[], 1, 2, 0, 0, [iQuat, iOffset], [iMeasEuler, iMeasDoa], idx);
 		eigenvalues = eig(P);
 		isNotPositiveDefinite = any(eigenvalues <= 1e-15); % Not PD if any eigenvalue is <= 0
 		if (isNotPositiveDefinite)

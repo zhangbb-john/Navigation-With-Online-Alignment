@@ -1,7 +1,7 @@
 
 function [traj_max,traj_mean,traj_std,P_mean,traj_sample_iwmax] = ...
     lsUkf(initialize, dynModel,measModel,measurements,...
-    x0_nonLin,Q0,Q,R,dt, groundTruth)
+    x0_nonLin,Q0,Q,Rs,dt, groundTruth)
 disp('Performing LS-UKF ...');
 iPos = 1 : 3;
 iQuat = 4 : 6;
@@ -35,13 +35,9 @@ for k=1:N_T
 	else
 		if (flag_nls)
 			[M, P] = ukf_predict1(M,P,dynModel,Q, dt, 1, 2, 0, 0, [iQuat, iOffset]);
-			idx = [];
-			if (mod(k * dt, 1 / freq_dvl) > 0.01)
-				idx = [idx, iMeasVel]; 
-			end
-			idx = [idx, iMeasDoa, iMeasDoppler]; 
-			R1 = R; R1(idx, idx) = R1(idx, idx) * 1e6;			
-% 			R1 = R; idx = [iMeasDoa, iMeasDoppler]; R1(idx, idx) = R1(idx, idx) * 1e6;
+
+			R1 = Rs(:, :, k); 
+			idx = find(diag(R1) > 100);						
 			[M, P] = ukf_update1(M, P, measurements(k,:)', measModel, R1, [], 1, 2, 0, 0, [iQuat, iOffset], ...
 				[iMeasEuler, iMeasDoa], idx);
 			M([iOffset, iBeacon]) = x0_nonLin([iOffset, iBeacon]);
@@ -120,19 +116,8 @@ for k=1:N_T
 			if (isNotPositiveDefinite)
 				P = Q0;
 			end 
-			idx = [];
-			if (mod(k * dt, 1 / freq_dvl) > 0.01)
-				idx = [idx, iMeasVel]; 
-			end
-			if (mod(k * dt, 1 / freq_acoustic) > 0.01)
-				idx = [idx, iMeasDoa, iMeasDoppler]; 
-			end 		
-			R1 = R; R1(idx, idx) = R1(idx, idx) * 1e6;
-% 			if (mod(k * dt, 1 / freq_acoustic) > 0.01)
-% 				R1 = R; idx = [iMeasDoa, iMeasDoppler]; R1(idx, idx) = R1(idx, idx) * 1e6;
-% 			else
-% 				R1 = R;
-% 			end
+			R1 = Rs(:, :, k); 
+			idx = find(diag(R1) > 100);	
 				
 			[M,P] = ukf_update1(M,P,measurements(k,:)',measModel,R1,[], 1, 2, 0, 0, [iQuat, iOffset], [iMeasEuler, iMeasDoa], idx);
 			eigenvalues = eig(P);

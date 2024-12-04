@@ -1,4 +1,4 @@
-function [dx, initState, y, groundTruth] = generateData(params,dynModel,measModel)
+function [dx, initState, y, y_Q, groundTruth] = generateData(mode, params,dynModel,measModel)
 %% GENERATEDATA_DENSE - Generates dense data for simulation experiments
 %
 % Syntax:
@@ -136,32 +136,47 @@ switch trajType
         dPos = diff(pos');
         dx = [dPos , dQuat];
         N = length(pos);
-    case 'circle_6D'
-        disp('Generating 6D data on circle')
-        dtheta = 5;
-        radius = 2;
-        nLaps = 2;
-        psi = (0:dtheta:360-dtheta);
-        psi = repmat(psi,1,nLaps);
-        N = length(psi);
-        
-        % True position and orientation
-        pos = [radius * cos(psi*pi/180); radius * sin(psi*pi/180); zeros(1,length(psi))];
-        R = [reshape(cos(psi*pi/180),[1 1 N]), reshape(sin(psi*pi/180),[1 1 N]), zeros(1,1,N) ; ...
-                reshape(-sin(psi*pi/180),[1 1 N]), reshape(cos(psi*pi/180),[1 1 N]), zeros(1,1,N) ; ...
-                zeros(1,1,N), zeros(1,1,N), ones(1,1,N)];
-
-        quat = rotm2quat(R);
-
-        groundTruth.pos = pos;
-        groundTruth.quat = quat;
-
+    case 'circle_6d'
+        disp('Generating 21-type 6D data')
+        ellipse_x = 50;
+        ellipse_y = 50;
+        z = 20;                                                  
+        K1 = 10;     
+		t_end = 6000;
+		circle_num = 8;
+        K = 2 * pi / (t_end / circle_num); 
+		t = 0 : params.dt : t_end;
+        pos = [ellipse_x * cos(K * t) - ellipse_x; ellipse_y * sin(K * t); zeros(size(t))];
+%         dp = [-K * ellipse_x * sin(K * t); K * ellipse_y * cos(K * t); z * K1 * K * cos(K1 * K * t));
+		dPos = diff(pos'); % Resulting odometry
+        N = length(pos);
+		vel = dPos./ params.dt;
+		vel = [vel(1, :); vel]';
+        k_roll = 0.9;
+        k_pitch = 0.9;
+        k_yaw = 3.14;
+		w = 0.04 / k_yaw;
+        euler = [k_roll * cos(w * t); k_pitch * sin(w * t); k_yaw * sin(w * t)];                  
+		rots = zeros(3, 3, size(euler, 2));
+		quat = zeros(4, size(euler, 2));
+		for i = 1 : size(vel, 2)
+			rot = euler2rot(euler(:, i));
+			vel(:, i) = rot' * vel(:, i);
+			quat(:, i) = rmat2quat(rot)';
+		end		
+		
+        % Save ground truth data
+        groundTruth.pos = pos; 
+        groundTruth.quat = quat;  
+		groundTruth.gt = [pos; euler; vel; [ones(1, size(pos, 2)) * 0.0349; ones(1, size(pos, 2)) * 0.0698; ones(1, size(pos, 2)) * 0.1047]; ...
+			[ones(1, size(pos, 2)) * -50.0; ones(1, size(pos, 2)) * 0.0; ones(1, size(pos, 2)) * 5.0]];
+% 		quat2euler(quat(:, 2))
         % Odometry measurements
-        initState = [pos(:,1) ; quat(1,:)'];
-        dPos = diff(pos');
-        dQuat = squeeze(multiprod(qLeft(qInv(quat(1:end-1,:))), ...
-            reshape(quat(2:end,:)',[4 1 length(quat)-1])))';
-        dx = [dPos, dQuat];
+		if (strcmp(mode.solution, 'align'))
+			initState = [pos(:,1) ; euler(:, 1); vel(:, 1); zeros(3, 1); zeros(3, 1)]; % Initial state				
+		else 
+			initState = [pos(:,1) ; euler(:, 1); vel(:, 1); [0.0349; 0.0698; 0.1047]; [-50.0; 0; 5]]; % Initial state	
+		end
     case 'bean_6D'
         disp('Generating bean-shaped 6D data')
         % Simulate position data
@@ -249,7 +264,11 @@ switch trajType
 			[ones(1, size(pos, 2)) * -50.0; ones(1, size(pos, 2)) * 20.0; ones(1, size(pos, 2)) * 10.0]];
 % 		quat2euler(quat(:, 2))
         % Odometry measurements
-        initState = [pos(:,1) ; euler(:, 1); vel(:, 1); zeros(3, 1); zeros(3, 1)]; % Initial state		
+		if (strcmp(mode.solution, 'align'))
+			initState = [pos(:,1) ; euler(:, 1); vel(:, 1); zeros(3, 1); zeros(3, 1)]; % Initial state				
+		else 
+			initState = [pos(:,1) ; euler(:, 1); vel(:, 1); [0.0349; 0.0698; 0.1047]; [-50.0; 20; 10]]; % Initial state	
+		end
 	case '22'
         disp('Generating 21-type 6D data')
         ellipse_x = 50;
@@ -311,13 +330,24 @@ Qmeas = params.Qmeas;% * 1e-10;
 if size(Qmeas,3) == 1 % Allow for both time-varying and constant Qprocess
       Qmeas = repmat(Qmeas,[1 1 N]);
 end
+
+
+y_Q = Qmeas;
+
 for i = 1 : N
 	y(i, :) = measModel(groundTruth.gt(:, i), Qmeas(:, :, i))';
+	idx = [];
+	if (mod(i * dt, 1 / params.freq_dvl) > 0.01)
+		idx = [idx, iMeasVel]; 
+	end
+	if (mod(i * dt, 1 / params.freq_acoustic) > 0.01)
+		idx = [idx, iMeasDoa, iMeasDoppler]; 
+	end 	
+	y_Qi = Qmeas(:, :, i);
+	y_Qi(idx, idx) = y_Qi(idx, idx) * 1e6;
+	y_Q(:, :, i) = y_Qi;
 end
 dx = [diff(x(:,1:3))];
-
-
-
 groundTruth.odometry = x;
 groundTruth.Qprocess = Qprocess;
 

@@ -1,7 +1,7 @@
 
 function [traj_max,traj_mean,traj_std,P_mean,traj_sample_iwmax] = ...
     ekf(initialize, dynModel,measModel,measurements,...
-    x0_nonLin,Q0,Q,R,dt, groundTruth, makeplots)
+    x0_nonLin,Q0,Q,Rs,dt, groundTruth, makeplots)
 disp('Performing EKF ...');
 iPos = 1 : 3;
 iQuat = 4 : 6;
@@ -63,14 +63,10 @@ for k=1:N_T
 			end
 		end
 		H = jac_meas_func(M);
-		idx = [];
-		if (mod(k * dt, 1 / freq_dvl) > 0.01)
-			idx = [idx, iMeasVel]; 
-		end
-		if (mod(k * dt, 1 / freq_acoustic) > 0.01)
-			idx = [idx, iMeasDoa, iMeasDoppler]; 
-		end 
-		R1 = R; R1(idx, idx) = R1(idx, idx) * 1e6;
+
+		R1 = Rs(:, :, k); 
+		idx = find(diag(R1) > 100);	
+
 		[M, P] = ekf_update1(M,P,measurements(k,:)', H, R1, @easyMeasModel, [iQuat, iOffset], [iMeasEuler, iMeasDoa]);
 		if (makeplots)
 			figure(iBeacon(end) + 3);
