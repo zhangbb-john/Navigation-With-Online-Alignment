@@ -85,8 +85,8 @@ elseif (strcmp(mode.data, 'sim') && strcmp(mode.solution, 'nav'))
 			Rparam = [1, 16e-4, 1, 0.0175^2, 1];
 		case 'drUkf'
 			% ukf
-			Qparam = [1e-4, 1e-4, 1e-2, 1e-20, 1e-10];
-			Q0param = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10];
+			Qparam = [1e-4, 1e-4, 1e-2, 1e-10, 1e-4];
+			Q0param = [1e-4, 1e-4, 1e-4, 1e-4, 1];
 			Rparam = [1, 16e-4, 1, 0.0175^2, 1];
 		case 'doaUkf'
 			% ukf
@@ -109,7 +109,9 @@ elseif (strcmp(mode.data, 'sim') && strcmp(mode.solution, 'nav'))
 			Q0param = [1e-4, 1e-4, 1e-2, 1e-10, 1e-10];
 			Rparam = [1, 16e-4, 0.0175^2, 1];			
 	end
-	
+	if (strcmp(mode.traj, 'circle_6d') || strcmp(mode.traj, 'circle_sine_shallow'))
+		Qparam(3) = 1e-4;
+	end	
 	Qpos = diag(20 * ones(1, 3) * Qparam(1));
 	Qeuler = diag(20 * [1, 1, 4] * Qparam(2));
 	Qvel = diag(20 * ones(1, 3) * Qparam(3));
@@ -131,7 +133,8 @@ elseif (strcmp(mode.data, 'sim') && strcmp(mode.solution, 'nav'))
 	Rdoa = diag([1 1 ] * Rparam(4));
 	Rdoppler = diag([25e-4, 0.36] * Rparam(5));
 	params.Qmeas = blkdiag(Reuler, Rvel, Rdepth, Rdoa, Rdoppler);
-	params.trajType = 'circle_6d';
+	params.trajType = mode.traj;
+
 	params.makePlots = 1;
 	params.visualiseResults = 1;
 	params.dt = 0.05;

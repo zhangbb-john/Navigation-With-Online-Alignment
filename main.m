@@ -2,6 +2,8 @@ close all;
 clear;
 originalPath = path;
 addpath(genpath('./.'))
+trial_num = 1;
+symbol = 'ellipse';
 global iPos iQuat iVel iOffset iBeacon;
 global iMeasEuler iMeasVel iMeasDepth iMeasDoa iMeasDoppler;
 iPos = 1 : 3;
@@ -9,7 +11,6 @@ iQuat = 4 : 6;
 iVel = 7 : 9;
 iOffset = 10 : 12;
 iBeacon = 13 : 15;
-
 iMeasEuler = 1 : 3;
 iMeasVel = 4 : 6;
 iMeasDepth = 7;
@@ -21,168 +22,181 @@ folder = './';
 flag = 0; %0 simulation; 1 read data;
 global debug_i;
 debug_i = 0;
-trajs = [];
-offset_errs = [];
-pos_errs = [];
-pos_final_errs = [];
-beacon_results = []; beacon_errs = [];
-filter = 'drUkf';%e.g., ukf, pf, ekf, drUkf, doaUkf
-mode.solution = 'nav';%nav
-mode.data = 'sim';%'field'
-makeplots = false;
 
-for trial = 1 : 5
-tic;
-pause(5);
-close all;
-[x0, measurements, measurements_Q, x_true, params] = getMeas(mode, @dynModel, @measModel, filter, folder);
-x0_nonLin = x0;
-N_P = 100; % Number of particles
+filters = { 'drUkf'}; %{ 'doaUkf', 'ukf' 'doaUkf',, 'ukf' 'ukf', 'ukf', 'doaUkf'};%, pf, ekf, drUkf,  'drUkf', 'ukf', 'doaUkf' 'drUkf', 'ukf', 
+% depths = [5, 10, 20, 40, 80];
+depths = [10, 20, 40];% 
+length(filters)
+for filter_i = 1 : length(filters)
+	for depth_i = 1 : length(depths)
+		trajs = [];
+		trajs_cov = [];
+		offset_errs = [];
+		pos_errs = [];
+		pos_final_errs = [];
+		beacon_results = []; beacon_errs = [];
+		filter = filters{filter_i};
+		mode.solution = 'nav';%nav
+		mode.data = 'sim';%'field'
+		mode.traj = 'circle_sine_shallow';
+		mode.depth = depths(depth_i); 
+		makeplots = false;
+	
+		for trial = 1 : 2
+			tic;
+			pause(5);
+			close all;
+			[x0, measurements, measurements_Q, x_true, params] = getMeas(mode, @dynModel, @measModel, filter, folder);
+			x0_nonLin = x0;
+			N_P = 100; % Number of particles
 
-switch filter
-	case 'ukf'
-		[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
-			ukf(@initialize, @dynModel, @measModel, measurements,...
-			x0_nonLin, params.Q0, params.Qprocess, measurements_Q, params.dt, x_true);
-	case 'drUkf'
-		[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
-			drUkf(@initialize, @dynModel, @measModel, measurements,...
-			x0_nonLin, params.Q0, params.Qprocess, measurements_Q, params.dt, x_true);
-	case 'doaUkf'
-		[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
-			doaUkf(@initialize, @dynModel, @measModel, measurements,...
-			x0_nonLin, params.Q0, params.Qprocess, measurements_Q, params.dt, x_true);
-	case 'pf'
-		[traj_max, traj_mean, xl_max, xl_mean, traj_std, P_mean, traj_sample_iwmax] = ...
-			particleFilter(@initialize, @dynModel, @measModel, measurements,...
-			x0_nonLin, params.Q0, params.Qprocess, params.Qmeas, N_P, params.dt, x_true, makeplots);		
+			switch filter
+				case 'ukf'
+					[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
+						ukf(@initialize, @dynModel, @measModel, measurements,...
+						x0_nonLin, params.Q0, params.Qprocess, measurements_Q, params.dt, x_true);
+				case 'drUkf'
+					[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
+						drUkf(@initialize, @dynModel, @measModel, measurements,...
+						x0_nonLin, params.Q0, params.Qprocess, measurements_Q, params.dt, x_true);
+				case 'doaUkf'
+					[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
+						doaUkf(@initialize, @dynModel, @measModel, measurements,...
+						x0_nonLin, params.Q0, params.Qprocess, measurements_Q, params.dt, x_true);
+				case 'pf'
+					[traj_max, traj_mean, xl_max, xl_mean, traj_std, P_mean, traj_sample_iwmax] = ...
+						particleFilter(@initialize, @dynModel, @measModel, measurements,...
+						x0_nonLin, params.Q0, params.Qprocess, params.Qmeas, N_P, params.dt, x_true, makeplots);		
+
+				case 'ekf'
+					[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
+						ekf(@initialize, @dynModel, @measModel, measurements,...
+						x0_nonLin, params.Q0, params.Qprocess, measurements_Q, params.dt, x_true, makeplots);
+				case 'lsUkf'
+					[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
+						lsUkf(@initialize, @dynModel, @measModel, measurements,...
+						x0_nonLin, params.Q0, params.Qprocess, measurements_Q, params.dt, x_true);		
+			end
+			figure(iOffset(1));
+			plot(traj_mean(iOffset(1), :), 'r-'); hold on;
+			plot(traj_mean(iOffset(2), :), 'g-'); hold on;
+			plot(traj_mean(iOffset(3), :), 'b-'); hold on;
+			title('Offset');
+			figure(iBeacon(1));
+			plot(traj_mean(iBeacon(1), :), 'r-'); hold on;
+			plot(traj_mean(iBeacon(2), :), 'g-'); hold on;
+			plot(traj_mean(iBeacon(3), :), 'b-'); hold on;
+			title('Beacon');
+			figure(iPos(1));
+			plot(traj_mean(iPos(1), :), traj_mean(iPos(2), :), 'r-'); hold on;
+			title('Trajectory');
+			xlabel('East [m]'); ylabel('North [m]');
+			dpos = diff(x_true.gt(iPos, :)');
+			dist = sum(sqrt(dpos(:, 1).^2 + dpos(:, 2).^2 + dpos(:, 3).^2));
+			rmse_pos_pf = norm(rms(x_true.gt(iPos, :)' - traj_max(iPos, :)'));
+			disp(['rmse is ', num2str(rmse_pos_pf), '; dist is ', num2str(dist)]);
+			if (size(measurements, 2) > iMeasVel(3))
+				figure(iVel(1));
+				subplot(3,1,1);
+				plot(measurements(:, iMeasVel(1)), 'k'); hold on;
+				plot(traj_mean(iVel(1), :), 'r-'); hold on;
+				legend('Measured velocity', 'Estimated velocity state');
+				title('Estimated velocity ');
+
+				subplot(3,1,2);
+				plot(measurements(:, iMeasVel(2)), 'k'); hold on;
+				plot(traj_mean(iVel(2), :), 'g-'); hold on;
+
+				subplot(3,1,3);
+				plot(measurements(:, iMeasVel(3)), 'k'); hold on;
+				plot(traj_mean(iVel(3), :), 'b-'); hold on;
+			end
+			figure(iQuat(1));
+			subplot(4, 1, 1);
+			plot_est_yaw = plot(traj_mean(iQuat(1), :), 'r-'); hold on;
+			plot(measurements(:, iMeasEuler(1)), 'k');
+			legend('estimated roll', 'Measured roll');
+			title('Estimated roll ');
+			subplot(4, 1, 2);
+			plot_est_yaw = plot(traj_mean(iQuat(2), :), 'r-'); hold on;
+			plot(measurements(:, iMeasEuler(2)), 'k');
+			legend('estimated pitch', 'Measured pitch');
+			title('Estimated pitch ');
+			subplot(4, 1, 3);
+			plot_est_yaw = plot(traj_mean(iQuat(3), :), 'r-'); hold on;
+			plot(measurements(:, iMeasEuler(3)), 'k');
+			legend('estimated yaw', 'Measured yaw');
+			title('Estimated yaw ');
+			subplot(4, 1, 4);
+			NormalizeAngle = @(angle)(mod(angle + pi, 2 * pi) + (mod(angle + pi, 2 * pi) < 0) * 2 * pi) - pi;
+
+			plot(NormalizeAngle(traj_mean(iQuat(3), :) - measurements(:, iMeasEuler(3))'), 'r-'); hold on;
+			title('Yaw error');
+			figure(iPos(2));
+			subplot(4,1,1); 
+			plot(traj_mean(iPos(1), :), 'r-'); hold on;
+			plot(x_true.gt(iPos(1), :), 'g-');
+			title('x position [m]');
+			subplot(4,1,2); 
+			plot(traj_mean(iPos(2), :), 'r-'); hold on;
+			plot(x_true.gt(iPos(2), :), 'g-');
+			title('y position [m]');
+			subplot(4,1,3); 
+			plot(traj_mean(iPos(3), :), 'r-'); hold on;
+			plot(x_true.gt(iPos(3), :), 'g-');
+			title('z position [m]');
+			subplot(4,1,4); 
+			plot(sqrt((traj_mean(iPos(1), :) - x_true.gt(iPos(1), :)).^2 + (traj_mean(iPos(2), :) - x_true.gt(iPos(2), :)).^2 ...
+				+ (traj_mean(iPos(3), :) - x_true.gt(iPos(3), :)).^2) , 'r-'); hold on;
+			title('Error [m]')
+			figure(iPos(3));
+			plot3(traj_mean(iPos(1), :), traj_mean(iPos(2), :), traj_mean(iPos(3), :), 'r-'); hold on;
+			plot3(x_true.gt(iPos(1), :), x_true.gt(iPos(2), :), x_true.gt(iPos(3), :), 'g-');
+			title('trajectory');
+
+			figure(iBeacon(end) + 2);
+			idx = [iPos(1) iQuat(3) iVel(1) iOffset(3) iBeacon(1)];
+			for i = 1 : length(idx)
+				subplot(length(idx), 1, i);
+				plotBoxplot(traj_std(idx(i), :));
+			end
+			% for i = 1 : length(x_true.gt(iPos(1), :))
+			% 	figure(25)
+			% 	plot(x_true.gt(iPos(1), i) + rand * 1, x_true.gt(iPos(2), i) + rand *1, 'r.'); hold on;
+			% 	if (mod(i, 100) == 0)
+			% 		text(x_true.gt(iPos(1), i) + rand * 1, x_true.gt(iPos(2), i), ['i = ', num2str(i)]);
+			% 	end
+			% 	title(['i = ', num2str(i)]);
+			% 	pause(0.01);
+			% 	
+			% end
+			offset_errs = [offset_errs; norm([traj_mean(iOffset, end) - x_true.gt(iOffset, end)])];
+			beacon_errs = [beacon_errs; norm([traj_mean(iBeacon, end) - x_true.gt(iBeacon, end)])];
+			pos_errs = [pos_errs; rmse_pos_pf];
+			pos_final_errs = [pos_final_errs; sqrt((traj_mean(iPos(1), end) - x_true.gt(iPos(1), end)).^2 + (traj_mean(iPos(2), end) - x_true.gt(iPos(2), end)).^2)];
+			pause(1);
+			disp([num2str(trial), '-th trial takes ', num2str(toc), ' seconds']);
+			trajs(:, : , trial) = traj_mean(:, 1 : 20 : end);
+			trajs_cov(:, :, :, trial) = P_mean;
+		end
+		str = ['RMSE of offset is deg', num2str(180 / pi * rms(offset_errs)), ';RMSE of beacon position is ', num2str(rms(beacon_errs)), ...
+			';RMS of position rmse for multiple trials is ', num2str(rms(pos_errs)), ';RMS of final position error for multiple trials is ', num2str(rms(pos_final_errs))];
+		disp(str);
+		% disp(['RMSE of beacon position is ', num2str(rms(beacon_errs))]);
+		% disp(['RMS of position rmse for multiple trials is ', num2str(rms(pos_errs))]);
+		% disp(['RMS of final position error for multiple trials is ', num2str(rms(pos_final_errs))]);
 		
-	case 'ekf'
-		[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
-			ekf(@initialize, @dynModel, @measModel, measurements,...
-			x0_nonLin, params.Q0, params.Qprocess, measurements_Q, params.dt, x_true, makeplots);
-	case 'lsUkf'
-		[traj_max, traj_mean, traj_std, P_mean, traj_sample_iwmax] = ...
-			lsUkf(@initialize, @dynModel, @measModel, measurements,...
-			x0_nonLin, params.Q0, params.Qprocess, measurements_Q, params.dt, x_true);		
+		description = "This is a dataset 0.02hz acoustic ";
+		folderName = ['../data_', symbol, '_', params.trajType, '_depth-', num2str(mode.depth), 'm_', mode.data, '_', mode.solution, '_', num2str(0.2), 'hz_1206', filter];
+		writeToFolder(offset_errs, folderName, description)
+		writeToFolder(beacon_errs, folderName, description)
+		writeToFolder(pos_errs, folderName, description)
+		writeToFolder(trajs, folderName, description)
+		writeToFolder(trajs_cov, folderName, description)
+		writeToFolder(pos_final_errs, folderName, str)
+	end
 end
-figure(iOffset(1));
-plot(traj_mean(iOffset(1), :), 'r-'); hold on;
-plot(traj_mean(iOffset(2), :), 'g-'); hold on;
-plot(traj_mean(iOffset(3), :), 'b-'); hold on;
-title('Offset');
-figure(iBeacon(1));
-plot(traj_mean(iBeacon(1), :), 'r-'); hold on;
-plot(traj_mean(iBeacon(2), :), 'g-'); hold on;
-plot(traj_mean(iBeacon(3), :), 'b-'); hold on;
-title('Beacon');
-figure(iPos(1));
-plot(traj_mean(iPos(1), :), traj_mean(iPos(2), :), 'r-'); hold on;
-title('Trajectory');
-xlabel('East [m]'); ylabel('North [m]');
-dpos = diff(x_true.gt(iPos, :)');
-dist = sum(sqrt(dpos(:, 1).^2 + dpos(:, 2).^2 + dpos(:, 3).^2));
-rmse_pos_pf = norm(rms(x_true.gt(iPos, :)' - traj_max(iPos, :)'));
-disp(['rmse is ', num2str(rmse_pos_pf), '; dist is ', num2str(dist)]);
-if (size(measurements, 2) > iMeasVel(3))
-	figure(iVel(1));
-	subplot(3,1,1);
-	plot(measurements(:, iMeasVel(1)), 'k'); hold on;
-	plot(traj_mean(iVel(1), :), 'r-'); hold on;
-	legend('Measured velocity', 'Estimated velocity state');
-	title('Estimated velocity ');
-
-	subplot(3,1,2);
-	plot(measurements(:, iMeasVel(2)), 'k'); hold on;
-	plot(traj_mean(iVel(2), :), 'g-'); hold on;
-
-	subplot(3,1,3);
-	plot(measurements(:, iMeasVel(3)), 'k'); hold on;
-	plot(traj_mean(iVel(3), :), 'b-'); hold on;
-end
-figure(iQuat(1));
-subplot(4, 1, 1);
-plot_est_yaw = plot(traj_mean(iQuat(1), :), 'r-'); hold on;
-plot(measurements(:, iMeasEuler(1)), 'k');
-legend('estimated roll', 'Measured roll');
-title('Estimated roll ');
-subplot(4, 1, 2);
-plot_est_yaw = plot(traj_mean(iQuat(2), :), 'r-'); hold on;
-plot(measurements(:, iMeasEuler(2)), 'k');
-legend('estimated pitch', 'Measured pitch');
-title('Estimated pitch ');
-subplot(4, 1, 3);
-plot_est_yaw = plot(traj_mean(iQuat(3), :), 'r-'); hold on;
-plot(measurements(:, iMeasEuler(3)), 'k');
-legend('estimated yaw', 'Measured yaw');
-title('Estimated yaw ');
-subplot(4, 1, 4);
-NormalizeAngle = @(angle)(mod(angle + pi, 2 * pi) + (mod(angle + pi, 2 * pi) < 0) * 2 * pi) - pi;
-
-plot(NormalizeAngle(traj_mean(iQuat(3), :) - measurements(:, iMeasEuler(3))'), 'r-'); hold on;
-title('Yaw error');
-figure(iPos(2));
-subplot(4,1,1); 
-plot(traj_mean(iPos(1), :), 'r-'); hold on;
-plot(x_true.gt(iPos(1), :), 'g-');
-title('x position [m]');
-subplot(4,1,2); 
-plot(traj_mean(iPos(2), :), 'r-'); hold on;
-plot(x_true.gt(iPos(2), :), 'g-');
-title('y position [m]');
-subplot(4,1,3); 
-plot(traj_mean(iPos(3), :), 'r-'); hold on;
-plot(x_true.gt(iPos(3), :), 'g-');
-title('z position [m]');
-subplot(4,1,4); 
-plot(sqrt((traj_mean(iPos(1), :) - x_true.gt(iPos(1), :)).^2 + (traj_mean(iPos(2), :) - x_true.gt(iPos(2), :)).^2 ...
-	+ (traj_mean(iPos(3), :) - x_true.gt(iPos(3), :)).^2) , 'r-'); hold on;
-title('Error [m]')
-figure(iPos(3));
-plot3(traj_mean(iPos(1), :), traj_mean(iPos(2), :), traj_mean(iPos(3), :), 'r-'); hold on;
-plot3(x_true.gt(iPos(1), :), x_true.gt(iPos(2), :), x_true.gt(iPos(3), :), 'g-');
-title('trajectory');
-
-figure(iBeacon(end) + 2);
-idx = [iPos(1) iQuat(3) iVel(1) iOffset(3) iBeacon(1)];
-for i = 1 : length(idx)
-	subplot(length(idx), 1, i);
-	plotBoxplot(traj_std(idx(i), :));
-end
-% for i = 1 : length(x_true.gt(iPos(1), :))
-% 	figure(25)
-% 	plot(x_true.gt(iPos(1), i) + rand * 1, x_true.gt(iPos(2), i) + rand *1, 'r.'); hold on;
-% 	if (mod(i, 100) == 0)
-% 		text(x_true.gt(iPos(1), i) + rand * 1, x_true.gt(iPos(2), i), ['i = ', num2str(i)]);
-% 	end
-% 	title(['i = ', num2str(i)]);
-% 	pause(0.01);
-% 	
-% end
-offset_errs = [offset_errs; norm([traj_mean(iOffset, end) - x_true.gt(iOffset, end)])];
-beacon_errs = [beacon_errs; norm([traj_mean(iBeacon, end) - x_true.gt(iBeacon, end)])];
-pos_errs = [pos_errs; rmse_pos_pf];
-pos_final_errs = [pos_final_errs; sqrt((traj_mean(iPos(1), end) - x_true.gt(iPos(1), end)).^2 + (traj_mean(iPos(2), end) - x_true.gt(iPos(2), end)).^2)];
-pause(1);
-disp([num2str(trial), '-th trial takes ', num2str(toc), ' seconds']);
-trajs(:, : , trial) = traj_mean;
-end
-str = ['RMSE of offset is deg', num2str(180 / pi * rms(offset_errs)), ';RMSE of beacon position is ', num2str(rms(beacon_errs)), ...
-	';RMS of position rmse for multiple trials is ', num2str(rms(pos_errs)), ';RMS of final position error for multiple trials is ', num2str(rms(pos_final_errs))];
-disp(str);
-% disp(['RMSE of beacon position is ', num2str(rms(beacon_errs))]);
-% disp(['RMS of position rmse for multiple trials is ', num2str(rms(pos_errs))]);
-% disp(['RMS of final position error for multiple trials is ', num2str(rms(pos_final_errs))]);
 path(originalPath);
-description = "This is a dataset 0.02hz acoustic ";
-folderName = ['../data_', params.trajType, '_', mode.data, '_', mode.solution, '_', num2str(0.2), 'hz_', filter];
-writeToFolder(offset_errs, folderName, description)
-writeToFolder(beacon_errs, folderName, description)
-writeToFolder(pos_errs, folderName, description)
-writeToFolder(trajs, folderName, description)
-
-writeToFolder(pos_final_errs, folderName, str)
-
 function [xpred] = initialize(xn, Q)
 	global iPos iQuat iVel iOffset iBeacon debug_i;
 	xpred_pos = xn(iPos) + chol(Q(iPos, iPos),'lower') * randn(length(iPos),1);

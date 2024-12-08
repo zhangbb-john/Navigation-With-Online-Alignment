@@ -21,27 +21,36 @@ N_T = size(measurements,1);% original Y is measurement * state_num
 % Reserve space for estimates.
 traj_max = zeros(nNonLin, N_T);
 U_PP = zeros(nNonLin, nNonLin, N_T);
-
+P_mean = [];
 % Estimate with UKF
 for k=1:N_T
-	if (mod(k, round(N_T / 10)) == 0)
-		disp(['time step k is ', num2str(k)])
+	if (k > 10 && mod(k, round(N_T / 10)) == 1)
+		disp(['time step k is ', num2str(k)]);
+		P_mean(:, :, round(k / round(N_T / 10))) = P;
 	end
 	if (k == 1)
 		M = initialize(x0_nonLin, Q0 * 1e-10);
 		P = Q0;
 	else
+		neglect_state_idx = [iOffset, iBeacon];
+		neglect_state = 0; %M(neglect_state_idx);
 		[M, P] = ukf_predict1(M,P,dynModel,Q, dt, 1, 2, 0, 0, [iQuat, iOffset]);
-		
+		P_buff = P; P(neglect_state_idx, :) = 0; P(:, neglect_state_idx) = 0; P(neglect_state_idx, neglect_state_idx) = P_buff(neglect_state_idx, neglect_state_idx);
+		M(neglect_state_idx) = neglect_state;
 		eigenvalues = eig(P);
 		isNotPositiveDefinite = any(eigenvalues <= 1e-15); % Not PD if any eigenvalue is <= 0
 		if (isNotPositiveDefinite)
+			disp('error, P isNotPositiveDefinite'); 
 			P = Q0;
 		end 
 		R1 = Rs(:, :, k); 
-		idx = find(diag(R1) > 100);
+		idx = find(diag(R1) > 100); neglect_meas_idx = [iMeasDoa, iMeasDoppler]'; idx = unique([idx; neglect_meas_idx]);
+		if (length(idx) == 0)
+			'error'
+		end
 		[M,P] = ukf_update1(M,P,measurements(k,:)',measModel,R1,[], 1, 2, 0, 0, [iQuat, iOffset], [iMeasEuler, iMeasDoa], idx);
-
+		P_buff = P; P(neglect_state_idx, :) = 0; P(:, neglect_state_idx) = 0; P(neglect_state_idx, neglect_state_idx) = P_buff(neglect_state_idx, neglect_state_idx);
+		M(neglect_state_idx) = neglect_state;
 		% if (mod(k * dt, 1 / freq_dvl) > 0.01)
 		% 	R1 = R; idx = [iMeasVel,iMeasDoa, iMeasDoppler]; R1(idx, idx) = R1(idx, idx) * 1e6;
 		% 	[M,P] = ukf_update1(M,P,measurements(k,:)',measModel,R1,[], 1, 2, 0, 0, [iQuat, iOffset], [iMeasEuler, iMeasDoa], idx);
@@ -79,7 +88,7 @@ for k=1:N_T
 
 end
 traj_mean = traj_max;
-P_mean = [] ;
+
 traj_sample_iwmax = [];
 
 end

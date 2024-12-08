@@ -108,17 +108,30 @@ function [M,P,K,MU,S,LH] = ukf_update1(M,P,Y,h,R,h_param,alpha,beta,kappa,mat, s
 	% Do transform and make the update
 	%
 	tr_param = {alpha beta kappa mat};
-	[MU,S,C] = ut_transform(M,P,h,h_param,tr_param, state_angle_idx, meas_angle_idx);
-
-	S = S + R;
+	
+	keep_idx = setdiff((1 : size(R, 1)), neglect_idx);
+	[MU,S,C] = ut_transform(M,P,h,h_param,tr_param, state_angle_idx, meas_angle_idx, neglect_idx);
+	
+% 	S = S(keep_idx, keep_idx);
+	R1 = R(keep_idx, keep_idx);
+% 	if (length(keep_idx) > 4)
+% 		'error'
+% 	end
+% 	C = C(:, keep_idx);
+	S = S + R1;
 	K = C / S;
-	error = (Y - MU);
-	error(neglect_idx) = 0;
+	error = (Y - MU); 
+	
 	NormalizeAngle = @(angle)(mod(angle + pi, 2 * pi) + (mod(angle + pi, 2 * pi) < 0) * 2 * pi) - pi;
 	error(meas_angle_idx) = NormalizeAngle(error(meas_angle_idx));
+	error = error(keep_idx);
+	
 	cS = chol(S,'lower'); diag_cS = diag(cS);
 	normalized_err = cS \ error;
 	innovation = K * error;
+% 	if (innovation(1) > 0.1)
+% 		'position error'
+% 	end	
 	M = M + K * error;
 	P = P - K * S * K';
 	for ri = 1 : 2

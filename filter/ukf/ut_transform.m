@@ -41,7 +41,7 @@
 % Licence (version 2 or later); please refer to the file 
 % Licence.txt, included with the software, for details.
 
-function [mu,S,C,X,Y,w] = ut_transform(M,P,g,g_param,tr_param, input_angle_idx, output_angle_idx)
+function [mu,S,C,X,Y,w] = ut_transform(M,P,g,g_param,tr_param, input_angle_idx, output_angle_idx, neglect_idx)
 
   if nargin < 4
      g_param = [];
@@ -50,7 +50,9 @@ function [mu,S,C,X,Y,w] = ut_transform(M,P,g,g_param,tr_param, input_angle_idx, 
   if nargin < 5
      tr_param = []; 
   end
-
+  if nargin < 8
+     neglect_idx = []; 
+  end
   %
   % Apply defaults
   %
@@ -142,9 +144,11 @@ function [mu,S,C,X,Y,w] = ut_transform(M,P,g,g_param,tr_param, input_angle_idx, 
     S  = Y*W*Y';
     C  = X*W*Y';
   else
+	keep_idx = setdiff((1 : size(Y,1)), neglect_idx);
+	
     mu = zeros(size(Y,1),1);
-    S  = zeros(size(Y,1),size(Y,1));
-    C  = zeros(size(M,1),size(Y,1));
+    S  = zeros(length(keep_idx), length(keep_idx));
+    C  = zeros(size(M,1), length(keep_idx));
 	lin_idx = 1 : size(Y,1);
 	lin_idx(output_angle_idx) = [];
 	sum_sin = zeros(length(output_angle_idx), 1);
@@ -160,10 +164,10 @@ function [mu,S,C,X,Y,w] = ut_transform(M,P,g,g_param,tr_param, input_angle_idx, 
 		NormalizeAngle = @(angle)(mod(angle + pi, 2 * pi) + (mod(angle + pi, 2 * pi) < 0) * 2 * pi) - pi;
 		diff_Y = Y(:,i) - mu;
 		diff_Y(output_angle_idx) = NormalizeAngle(diff_Y(output_angle_idx));
-		S = S + WC(i) * (diff_Y * diff_Y');
+		S = S + WC(i) * (diff_Y(keep_idx) * diff_Y(keep_idx)');
 		diff_X = X(1:size(M,1),i) - M;
 		diff_X(input_angle_idx) = NormalizeAngle(diff_X(input_angle_idx));
-		C = C + WC(i) * diff_X * diff_Y';
+		C = C + WC(i) * diff_X * diff_Y(keep_idx)';
     end
   end
 

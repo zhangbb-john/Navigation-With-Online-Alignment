@@ -169,13 +169,13 @@ switch trajType
         groundTruth.pos = pos; 
         groundTruth.quat = quat;  
 		groundTruth.gt = [pos; euler; vel; [ones(1, size(pos, 2)) * 0.0349; ones(1, size(pos, 2)) * 0.0698; ones(1, size(pos, 2)) * 0.1047]; ...
-			[ones(1, size(pos, 2)) * -50.0; ones(1, size(pos, 2)) * 0.0; ones(1, size(pos, 2)) * 5.0]];
+			[ones(1, size(pos, 2)) * -50.0; ones(1, size(pos, 2)) * 0.0; ones(1, size(pos, 2)) * mode.depth]];
 % 		quat2euler(quat(:, 2))
         % Odometry measurements
 		if (strcmp(mode.solution, 'align'))
 			initState = [pos(:,1) ; euler(:, 1); vel(:, 1); zeros(3, 1); zeros(3, 1)]; % Initial state				
 		else 
-			initState = [pos(:,1) ; euler(:, 1); vel(:, 1); [0.0349; 0.0698; 0.1047]; [-50.0; 0; 5]]; % Initial state	
+			initState = [pos(:,1) ; euler(:, 1); vel(:, 1); [0.0349; 0.0698; 0.1047]; [-50.0; 0; mode.depth]]; % Initial state	
 		end
     case 'bean_6D'
         disp('Generating bean-shaped 6D data')
@@ -305,7 +305,91 @@ switch trajType
 			[ones(1, size(pos, 2)) * -50.0; ones(1, size(pos, 2)) * 20.0; ones(1, size(pos, 2)) * 10.0]];
 % 		quat2euler(quat(:, 2))
         % Odometry measurements
-        initState = [pos(:,1) ; euler(:, 1); vel(:, 1); zeros(3, 1); zeros(3, 1)]; % Initial state		
+        initState = [pos(:,1) ; euler(:, 1); vel(:, 1); zeros(3, 1); zeros(3, 1)]; % Initial state	
+
+	case 'circle_sine'
+        disp('Generating 21-type 6D data')
+        ellipse_x = 50;
+        ellipse_y = 50;
+        z = 20;                                                  
+        K1 = 10;     
+		t_end = 6000;
+		circle_num = 8;
+        K = 2 * pi / (t_end / circle_num); 
+		t = 0 : params.dt : t_end;
+        pos = [ellipse_x * cos(K * t) - ellipse_x; ellipse_y * sin(K * t); z * sin(K1 * K * t) + 20];
+%         dp = [-K * ellipse_x * sin(K * t); K * ellipse_y * cos(K * t); z * K1 * K * cos(K1 * K * t));
+		dPos = diff(pos'); % Resulting odometry
+        N = length(pos);
+		vel = dPos./ params.dt;
+		vel = [vel(1, :); vel]';
+        k_roll = 0.9;
+        k_pitch = 0.9;
+        k_yaw = 3.14;
+		w = 0.04 / k_yaw;
+        euler = [k_roll * cos(w * t); k_pitch * sin(w * t); k_yaw * sin(w * t)];                  
+		rots = zeros(3, 3, size(euler, 2));
+		quat = zeros(4, size(euler, 2));
+		for i = 1 : size(vel, 2)
+			rot = euler2rot(euler(:, i));
+			vel(:, i) = rot' * vel(:, i);
+			quat(:, i) = rmat2quat(rot)';
+		end		
+		
+        % Save ground truth data
+        groundTruth.pos = pos; 
+        groundTruth.quat = quat;  
+		groundTruth.gt = [pos; euler; vel; [ones(1, size(pos, 2)) * 0.0349; ones(1, size(pos, 2)) * 0.0698; ones(1, size(pos, 2)) * 0.1047]; ...
+			[ones(1, size(pos, 2)) * -50.0; ones(1, size(pos, 2)) * 20.0; ones(1, size(pos, 2)) * mode.depth]];
+% 		quat2euler(quat(:, 2))
+        % Odometry measurements
+		if (strcmp(mode.solution, 'align'))
+			initState = [pos(:,1) ; euler(:, 1); vel(:, 1); zeros(3, 1); zeros(3, 1)]; % Initial state				
+		else 
+			initState = [pos(:,1) ; euler(:, 1); vel(:, 1); [0.0349; 0.0698; 0.1047]; [-50.0; 20; mode.depth]]; % Initial state	
+		end
+
+	case 'circle_sine_shallow'
+        disp('Generating 21-type 6D data')
+        ellipse_x = 50;
+        ellipse_y = 50;
+        z = 5;                                                  
+        K1 = 50;     
+		t_end = 6000;
+		circle_num = 8;
+        K = 2 * pi / (t_end / circle_num); 
+		t = 0 : params.dt : t_end;
+        pos = [ellipse_x * cos(K * t) - ellipse_x; ellipse_y * sin(K * t); z * sin(K1 * K * t) + 5];
+%         dp = [-K * ellipse_x * sin(K * t); K * ellipse_y * cos(K * t); z * K1 * K * cos(K1 * K * t));
+		dPos = diff(pos'); % Resulting odometry
+        N = length(pos);
+		vel = dPos./ params.dt;
+		vel = [vel(1, :); vel]';
+        k_roll = 0.9;
+        k_pitch = 0.9;
+        k_yaw = 3.14;
+		w = 0.04 / k_yaw;
+        euler = [k_roll * cos(w * t); k_pitch * sin(w * t); k_yaw * sin(w * t)];                  
+		rots = zeros(3, 3, size(euler, 2));
+		quat = zeros(4, size(euler, 2));
+		for i = 1 : size(vel, 2)
+			rot = euler2rot(euler(:, i));
+			vel(:, i) = rot' * vel(:, i);
+			quat(:, i) = rmat2quat(rot)';
+		end		
+		
+        % Save ground truth data
+        groundTruth.pos = pos; 
+        groundTruth.quat = quat;  
+		groundTruth.gt = [pos; euler; vel; [ones(1, size(pos, 2)) * 0.0349; ones(1, size(pos, 2)) * 0.0698; ones(1, size(pos, 2)) * 0.1047]; ...
+			[ones(1, size(pos, 2)) * -50.0; ones(1, size(pos, 2)) * 20.0; ones(1, size(pos, 2)) * mode.depth]];
+% 		quat2euler(quat(:, 2))
+        % Odometry measurements
+		if (strcmp(mode.solution, 'align'))
+			initState = [pos(:,1) ; euler(:, 1); vel(:, 1); zeros(3, 1); zeros(3, 1)]; % Initial state				
+		else 
+			initState = [pos(:,1) ; euler(:, 1); vel(:, 1); [0.0349; 0.0698; 0.1047]; [-50.0; 20; mode.depth]]; % Initial state	
+		end
 end
 
 

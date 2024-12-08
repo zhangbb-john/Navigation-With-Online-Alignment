@@ -21,11 +21,13 @@ N_T = size(measurements,1);% original Y is measurement * state_num
 % Reserve space for estimates.
 traj_max = zeros(nNonLin, N_T);
 U_PP = zeros(nNonLin, nNonLin, N_T);
-
+P_mean = [];
 % Estimate with UKF
 for k=1:N_T
 	if (mod(k, round(N_T / 10)) == 0)
 		disp(['time step k is ', num2str(k)])
+		P_mean(:, :, round(k / round(N_T / 10))) = P;
+
 	end
 	if (k == 1)
 		M = initialize(x0_nonLin, Q0 * 1e-10);
@@ -74,7 +76,6 @@ for k=1:N_T
 
 end
 traj_mean = traj_max;
-P_mean = [] ;
 traj_sample_iwmax = [];
 
 end

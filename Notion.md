@@ -1,5 +1,7 @@
 # Todo
-## 
+## we need to keep some trajectory ellipse
+15 * 15 * 10 maybe
+
 
 
 ## 

@@ -1,4 +1,4 @@
-function writeToFolder(myData, folderName, description)
+function writeToFolder(my_data, folderName, description)
 varName = inputname(1);
 % Define the data
 
@@ -13,12 +13,19 @@ matFileName = strcat(varName, '.mat');
 matFileName = fullfile(folderName, matFileName);
 txtFileName = strcat(varName, '.txt');
 txtFileName = fullfile(folderName, txtFileName);
-writematrix(myData, txtFileName);  % Save as a text file
-
+new_data = my_data;
+if (size(new_data, 2) == 1)
+	new_data = new_data';
+end
+disp(['file to be saved is ', txtFileName, '; length(size(new_data)) is ', num2str(length(size(new_data)))])
+if (length(size(new_data)) < 4)
+    writematrix(new_data, txtFileName);  % Save as a text file
+end
 desFileName = fullfile(folderName, 'description.txt');
+disp(['file to be saved is ', matFileName])
 
 % Save the array as a .mat file in the folder
-save(matFileName, "myData");
+save(matFileName, "my_data");
 
 % Create a text file with the description
 fileID = fopen(desFileName, 'a');
