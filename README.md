@@ -3,7 +3,10 @@ This project is aimed to allow for misalignment-tolerant AUV navigation based on
 
 In this branch, we provide source codes for comparing different state estimation techniques.
 
+# Issue
+the Doa does not affect by moderate elevation errors and we do not know why, this is very strange.
 
+Now we know the reason is that when error is large, the positioning is dominated by the DR.
 # Only Collaborators Available
 ## Paper
 

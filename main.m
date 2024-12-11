@@ -3,7 +3,7 @@ clear;
 originalPath = path;
 addpath(genpath('./.'))
 trial_num = 1;
-symbol = 'ellipse';
+symbol = input('a sysmbol to describe your task');
 global iPos iQuat iVel iOffset iBeacon;
 global iMeasEuler iMeasVel iMeasDepth iMeasDoa iMeasDoppler;
 iPos = 1 : 3;
@@ -23,12 +23,14 @@ flag = 0; %0 simulation; 1 read data;
 global debug_i;
 debug_i = 0;
 
-filters = { 'drUkf'}; %{ 'doaUkf', 'ukf' 'doaUkf',, 'ukf' 'ukf', 'ukf', 'doaUkf'};%, pf, ekf, drUkf,  'drUkf', 'ukf', 'doaUkf' 'drUkf', 'ukf', 
+filters = {'drUkf','doaUkf'};%'drUkf', , 'ukf' 'drUkf','ukf', 'ukf' 'doaUkf'}; %{ 'doaUkf', 'ukf' 'doaUkf',, 'ukf' 'ukf', 'ukf', 'doaUkf'};%, pf, ekf, drUkf,  'drUkf', 'ukf', 'doaUkf' 'drUkf', 'ukf', 
 % depths = [5, 10, 20, 40, 80];
-depths = [10, 20, 40];% 
+depths = [5];% 
+elevation_scales = [0.1251, 0.251, 0.501, 1.01, 2.01, 4.01, 8.05]; %0.125 0.25 0.5 1.0 2 4.0 [1.01, 2.01, 3.01, 4.01, 5.01];% : 3;
 length(filters)
 for filter_i = 1 : length(filters)
 	for depth_i = 1 : length(depths)
+		for elevation_i = 1 : length(elevation_scales) 
 		trajs = [];
 		trajs_cov = [];
 		offset_errs = [];
@@ -38,11 +40,12 @@ for filter_i = 1 : length(filters)
 		filter = filters{filter_i};
 		mode.solution = 'nav';%nav
 		mode.data = 'sim';%'field'
-		mode.traj = 'circle_sine_shallow';
+		mode.traj = 'circle_sine_shallow'; %'';%circle_6d circle_6d
 		mode.depth = depths(depth_i); 
+		mode.elevation_error_scale = elevation_scales(elevation_i);
 		makeplots = false;
 	
-		for trial = 1 : 2
+		for trial = 1 : 10
 			tic;
 			pause(5);
 			close all;
@@ -187,13 +190,15 @@ for filter_i = 1 : length(filters)
 		% disp(['RMS of final position error for multiple trials is ', num2str(rms(pos_final_errs))]);
 		
 		description = "This is a dataset 0.02hz acoustic ";
-		folderName = ['../data_', symbol, '_', params.trajType, '_depth-', num2str(mode.depth), 'm_', mode.data, '_', mode.solution, '_', num2str(0.2), 'hz_1206', filter];
+		folderName = ['../data_', symbol, '_', params.trajType, '_depth-', num2str(mode.depth), 'm_', ...
+			mode.data, '_', mode.solution, '_', 'elevation-error_', num2str(mode.elevation_error_scale), '_', num2str(0.2), 'hz_1206', filter];
 		writeToFolder(offset_errs, folderName, description)
 		writeToFolder(beacon_errs, folderName, description)
 		writeToFolder(pos_errs, folderName, description)
 		writeToFolder(trajs, folderName, description)
 		writeToFolder(trajs_cov, folderName, description)
 		writeToFolder(pos_final_errs, folderName, str)
+		end
 	end
 end
 path(originalPath);

@@ -16,6 +16,11 @@ elseif (strcmp(mode.data, 'sim') && strcmp(mode.solution, 'align'))
 			Qparam = [0.25e-4, 1e-4, 16e-4, 1e-10, 25e-4];
 			Q0param = [1e-4, 1e-4, 1e-4, 1e-2, 6400];
 			Rparam = [1, 16e-4, 1, 0.0175^2, 1];
+		case 'doaUkf'
+			% ukf
+			Qparam = [0.25e-4, 1e-4, 16e-4, 1e-10, 25e-4];
+			Q0param = [1e-4, 1e-4, 1e-4, 1e-2, 6400];
+			Rparam = [1, 16e-4, 1, 0.0175^2, 1];
 		case 'drUkf'
 			% ukf
 			Qparam = [1e-4, 1e-4, 1e-2, 1e-8, 1e-4];
@@ -83,6 +88,7 @@ elseif (strcmp(mode.data, 'sim') && strcmp(mode.solution, 'nav'))
 			Qparam = [0.25e-4, 1e-4, 16e-4, 1e-20, 1e-10];
 			Q0param = [1e-4, 1e-4, 1e-4, 1e-10, 1e-10];
 			Rparam = [1, 16e-4, 1, 0.0175^2, 1];
+			% disp('This is a significant bug!!!, Q_param(3) should be 16e-4 at best');
 		case 'drUkf'
 			% ukf
 			Qparam = [1e-4, 1e-4, 1e-2, 1e-10, 1e-4];
@@ -109,9 +115,10 @@ elseif (strcmp(mode.data, 'sim') && strcmp(mode.solution, 'nav'))
 			Q0param = [1e-4, 1e-4, 1e-2, 1e-10, 1e-10];
 			Rparam = [1, 16e-4, 0.0175^2, 1];			
 	end
-	if (strcmp(mode.traj, 'circle_6d') || strcmp(mode.traj, 'circle_sine_shallow'))
+	if (strcmp(mode.traj, 'circle_6d'))% || strcmp(mode.traj, 'circle_sine_shallow'))
 		Qparam(3) = 1e-4;
 	end	
+	disp(['Qparam(3) = 1e-4 is better but now we set it to ', num2str(Qparam(3))]);
 	Qpos = diag(20 * ones(1, 3) * Qparam(1));
 	Qeuler = diag(20 * [1, 1, 4] * Qparam(2));
 	Qvel = diag(20 * ones(1, 3) * Qparam(3));
@@ -129,8 +136,12 @@ elseif (strcmp(mode.data, 'sim') && strcmp(mode.solution, 'nav'))
 	params.Q0 = Q0;
 	Reuler = diag([0.007, 0.007, 0.034]) * diag([0.007, 0.007, 0.034]) * Rparam(1);
 	Rvel = diag(ones(1, 3) * Rparam(2));
+% 	Rvel = diag(ones(1, 3) * Rparam(2)) * 100;
+% 	disp('This is a significant bug!!!! to to solved vel error for measurement')
 	Rdepth = 0.36 * Rparam(3);
-	Rdoa = diag([1 1 ] * Rparam(4));
+	Rdoa = diag([1, 1 * mode.elevation_error_scale * mode.elevation_error_scale] * Rparam(4));
+	disp('this is a bug; Rdoa is ')
+	Rdoa
 	Rdoppler = diag([25e-4, 0.36] * Rparam(5));
 	params.Qmeas = blkdiag(Reuler, Rvel, Rdepth, Rdoa, Rdoppler);
 	params.trajType = mode.traj;
