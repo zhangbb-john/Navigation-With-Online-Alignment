@@ -33,7 +33,7 @@ elseif (strcmp(mode.data, 'sim') && strcmp(mode.solution, 'align'))
 			Rparam = [1, 16e-4, 1, 0.0175^2, 1];
 		case 'lsUkf'
 			%lsUkf
-			Qparam = [1e-4, 1e-4, 16e-4, 1e-12, 1e-6];
+			Qparam = [1e-4, 1e-4, 1e-4, 1e-12, 1e-6];
 			Q0param = [1e-4, 1e-2, 1e-2, 1e-6, 1];
 			Rparam = [1, 16e-4, 1, 0.0175^2, 1];			
 		otherwise
@@ -64,7 +64,7 @@ elseif (strcmp(mode.data, 'sim') && strcmp(mode.solution, 'align'))
 	Rdoa = diag([1 1 ] * Rparam(4));
 	Rdoppler = diag([25e-4, 0.36] * Rparam(5));
 	params.Qmeas = blkdiag(Reuler, Rvel, Rdepth, Rdoa, Rdoppler);
-	params.trajType = '21';
+	params.trajType = mode.traj;
 	params.makePlots = 1;
 	params.visualiseResults = 1;
 	params.dt = 0.05;

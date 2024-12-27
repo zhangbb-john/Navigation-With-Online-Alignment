@@ -23,10 +23,10 @@ flag = 0; %0 simulation; 1 read data;
 global debug_i;
 debug_i = 0;
 
-filters = {'drUkf','doaUkf'};%'drUkf', , 'ukf' 'drUkf','ukf', 'ukf' 'doaUkf'}; %{ 'doaUkf', 'ukf' 'doaUkf',, 'ukf' 'ukf', 'ukf', 'doaUkf'};%, pf, ekf, drUkf,  'drUkf', 'ukf', 'doaUkf' 'drUkf', 'ukf', 
+filters = {'lsUkf'};%,'doaUkf''drUkf', , 'ukf' 'drUkf','ukf', 'ukf' 'doaUkf'}; %{ 'doaUkf', 'ukf' 'doaUkf',, 'ukf' 'ukf', 'ukf', 'doaUkf'};%, pf, ekf, drUkf,  'drUkf', 'ukf', 'doaUkf' 'drUkf', 'ukf', 
 % depths = [5, 10, 20, 40, 80];
 depths = [5];% 
-elevation_scales = [0.1251, 0.251, 0.501, 1.01, 2.01, 4.01, 8.05]; %0.125 0.25 0.5 1.0 2 4.0 [1.01, 2.01, 3.01, 4.01, 5.01];% : 3;
+elevation_scales = 1; %[0.1251, 0.251, 0.501, 1.01, 2.01, 4.01, 8.05]; %0.125 0.25 0.5 1.0 2 4.0 [1.01, 2.01, 3.01, 4.01, 5.01];% : 3;
 length(filters)
 for filter_i = 1 : length(filters)
 	for depth_i = 1 : length(depths)
@@ -38,14 +38,16 @@ for filter_i = 1 : length(filters)
 		pos_final_errs = [];
 		beacon_results = []; beacon_errs = [];
 		filter = filters{filter_i};
-		mode.solution = 'nav';%nav
+		mode.solution = 'align'; %'nav';%nav
 		mode.data = 'sim';%'field'
-		mode.traj = 'circle_sine_shallow'; %'';%circle_6d circle_6d
+		mode.traj = '21'; %'vertical_line';%_static_attitude
+		% 'circle_6d_static_attitude'; %'straight_line'; %'circle_6d_static_attitude';
+		%'static'; %'circle_6d_static_attitude';% 'circle_6d'; %'';%circle_6d circle_6d 'circle_sine_shallow'
 		mode.depth = depths(depth_i); 
 		mode.elevation_error_scale = elevation_scales(elevation_i);
 		makeplots = false;
 	
-		for trial = 1 : 10
+		for trial = 1 : 4
 			tic;
 			pause(5);
 			close all;
@@ -96,8 +98,11 @@ for filter_i = 1 : length(filters)
 			xlabel('East [m]'); ylabel('North [m]');
 			dpos = diff(x_true.gt(iPos, :)');
 			dist = sum(sqrt(dpos(:, 1).^2 + dpos(:, 2).^2 + dpos(:, 3).^2));
-			rmse_pos_pf = norm(rms(x_true.gt(iPos, :)' - traj_max(iPos, :)'));
-			disp(['rmse is ', num2str(rmse_pos_pf), '; dist is ', num2str(dist)]);
+			pos_error_time = rms(x_true.gt(iPos, :) - traj_max(iPos, :));
+			disp(['max of localization error is ', num2str(max(pos_error_time))]);
+			rmse_pos = norm(rms(x_true.gt(iPos, :)' - traj_max(iPos, :)'));
+			
+			disp(['rmse is ', num2str(rmse_pos), '; dist is ', num2str(dist)]);
 			if (size(measurements, 2) > iMeasVel(3))
 				figure(iVel(1));
 				subplot(3,1,1);
@@ -154,7 +159,10 @@ for filter_i = 1 : length(filters)
 			title('Error [m]')
 			figure(iPos(3));
 			plot3(traj_mean(iPos(1), :), traj_mean(iPos(2), :), traj_mean(iPos(3), :), 'r-'); hold on;
-			plot3(x_true.gt(iPos(1), :), x_true.gt(iPos(2), :), x_true.gt(iPos(3), :), 'g-');
+			plot3(x_true.gt(iPos(1), :), x_true.gt(iPos(2), :), x_true.gt(iPos(3), :), 'g-'); hold on;
+			plot3(x_true.gt(iBeacon(1), :), x_true.gt(iBeacon(2), :), x_true.gt(iBeacon(3), :), 'b*'); hold on;
+			plot3(traj_mean(iBeacon(1), :), traj_mean(iBeacon(2), :), traj_mean(iBeacon(3), :), 'yo'); hold on;
+			
 			title('trajectory');
 
 			figure(iBeacon(end) + 2);
@@ -175,7 +183,7 @@ for filter_i = 1 : length(filters)
 			% end
 			offset_errs = [offset_errs; norm([traj_mean(iOffset, end) - x_true.gt(iOffset, end)])];
 			beacon_errs = [beacon_errs; norm([traj_mean(iBeacon, end) - x_true.gt(iBeacon, end)])];
-			pos_errs = [pos_errs; rmse_pos_pf];
+			pos_errs = [pos_errs; rmse_pos];
 			pos_final_errs = [pos_final_errs; sqrt((traj_mean(iPos(1), end) - x_true.gt(iPos(1), end)).^2 + (traj_mean(iPos(2), end) - x_true.gt(iPos(2), end)).^2)];
 			pause(1);
 			disp([num2str(trial), '-th trial takes ', num2str(toc), ' seconds']);
@@ -198,6 +206,9 @@ for filter_i = 1 : length(filters)
 		writeToFolder(trajs, folderName, description)
 		writeToFolder(trajs_cov, folderName, description)
 		writeToFolder(pos_final_errs, folderName, str)
+		measurement_cov = params.Qmeas; writeToFolder(measurement_cov, folderName, str);
+		process_cov = params.Qprocess; writeToFolder(process_cov, folderName, str);
+		
 		end
 	end
 end

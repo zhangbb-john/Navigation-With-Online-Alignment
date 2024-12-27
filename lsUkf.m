@@ -37,6 +37,7 @@ for k=1:N_T
 			[M, P] = ukf_predict1(M,P,dynModel,Q, dt, 1, 2, 0, 0, [iQuat, iOffset]);
 
 			R1 = Rs(:, :, k); 
+			R1([iMeasDoa, iMeasDoppler], [iMeasDoa, iMeasDoppler]) = R1([iMeasDoa, iMeasDoppler], [iMeasDoa, iMeasDoppler]) * 1e6;
 			idx = find(diag(R1) > 100);						
 			[M, P] = ukf_update1(M, P, measurements(k,:)', measModel, R1, [], 1, 2, 0, 0, [iQuat, iOffset], ...
 				[iMeasEuler, iMeasDoa], idx);
