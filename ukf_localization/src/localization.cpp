@@ -44,7 +44,12 @@ void Localization::reset()
   std::cout << "Get threshold during reset: " << initial_usbl.get_threshold() << std::endl;
 }
 
-void Localization::predict(double deltaT) { filter_.predict(deltaT); }
+void Localization::predict(double deltaT) 
+{ 
+  TicToc t;
+  filter_.predict(deltaT); 
+  std::cout << "predict takes " << t.toc() << " seconds" << std::endl;
+}
 void Localization::processMeasurement(Measurement measurement)
 {
   double deltaT = 0.0;
@@ -77,7 +82,9 @@ void Localization::processMeasurement(Measurement measurement)
             << filter_.getState() << std::endl
             << std::endl;
     //std::cout<<"deltaT is "<<deltaT<<std::endl;
+    TicToc t_predict;
     filter_.predict(deltaT);
+    std::cout << "state estimator predicting takes " << t_predict.toc() << " seconds " << std::endl;
     // Eigen::Matrix3d Rotation =
     //   (Eigen::AngleAxisd(filter_.getState()(StateYaw), Eigen::Vector3d::UnitZ()) *
     //    Eigen::AngleAxisd(filter_.getState()(StatePitch), Eigen::Vector3d::UnitY()) *
@@ -109,7 +116,9 @@ void Localization::processMeasurement(Measurement measurement)
       logfile <<std::fixed<<std::setprecision(2) << "Dvl"
               << ": time is " << measurement.time << std::endl;
       //measurefile<<measurement.measurement<<std::endl;
+      TicToc t;
       filter_.update(z, R, dvlModel_);
+      std::cout << " DVL measurement process takes " << t.toc() << std::endl;
     }
     else if (measurement.type == MeasurementTypeImu)
     {
@@ -119,7 +128,10 @@ void Localization::processMeasurement(Measurement measurement)
       logfile <<std::fixed<<std::setprecision(2) << "Imu"
               << ": time is " << measurement.time << std::endl;
       //measurefile<<measurement.measurement<<std::endl;
+      TicToc t;
       filter_.update(z, R, imuModel_);
+      std::cout << " IMU measurement process takes " << t.toc() << std::endl;
+
     }
     else if (measurement.type == MeasurementTypeAngle)
     {
@@ -133,7 +145,10 @@ void Localization::processMeasurement(Measurement measurement)
       Eigen::Vector3d usbl_rpy;
       if (isUSBLInitialized_)
       {
+        TicToc t;
         filter_.update(z, R, angleModel_);
+        std::cout << " angleModel measurement process takes " << t.toc() << std::endl;
+
         logfile << "isUSBLInitialized_: true; update with angle" << std::endl;
       }
       else 

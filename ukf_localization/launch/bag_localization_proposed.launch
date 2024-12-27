@@ -28,5 +28,5 @@
 
 <!-- data -->
 <!-- data -->
-<node  pkg="rosbag" type ="play" name = "rosbag" args ="--clock  /home/ubuntu/data/bearing-only-dataset/scene_2022-09-28-08-35-42-11980--13600.bag --topic /Sensor/AHRS /Sensor/Pressure /Sensor/DVL  /Sensor/RECVIM /Sensor/USBLLONG  /Sensor/Gps -r 5"></node>
+<node  pkg="rosbag" type ="play" name = "rosbag" args ="--clock  /home/ubuntu/data/bearing-only-dataset/scene_2022-09-28-08-35-42-11980--13600.bag --topic /Sensor/AHRS /Sensor/Pressure /Sensor/DVL  /Sensor/RECVIM /Sensor/USBLLONG  /Sensor/Gps -r 1"></node>
 </launch>

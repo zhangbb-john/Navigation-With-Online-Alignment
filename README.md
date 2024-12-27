@@ -1,4 +1,8 @@
 
+# Description
+Navigation with online self-alignment and beacon localization using DoA and Dopper measurements
+
+![alt text](demo/navigation_with_online_alignment.gif)
 # 1. Environment required
 ## 1.1. package
 ## 1.2. tf2_geometry_msgs
@@ -69,10 +73,12 @@ ukf_localization/include/ukf.h
 ## 4.2. steps for doa-only mode
 ### 4.2.1. code
 #### 4.2.1.1. ukf_localization/include/localization_ros.h
-```#define ADJUST_NOISE
+```
+#define ADJUST_NOISE
 ```
 #### 4.2.1.2. ukf_localization/include/localization.h
-```//#define BEACON_KNOWN
+```
+//#define BEACON_KNOWN
 ```
 ### 4.2.2. config
 #### 4.2.2.1. use ukf_localization/config/config_doa.yaml in ukf_localization/launch/sim_localization.launch
@@ -113,7 +119,8 @@ beacon_initial_noise 1e-20
 #### 4.4.2.1. ukf_localization/include/localization_ros.h
 //#define ADJUST_NOISE
 #### 4.4.2.2. ukf_localization/include/localization.h
-```#define BEACON_KNOWN
+```
+#define BEACON_KNOWN
 ```
 # 5. steps to run online in real-world experiments
 ## 5.1. code

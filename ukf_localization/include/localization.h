@@ -15,6 +15,8 @@
 #include <memory>
 #include <vector>
 #include <initial_usbl.h>
+#include "utils/TicToc.h"
+
 /*
  * localization filter based on UKF
  */
